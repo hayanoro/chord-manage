@@ -216,7 +216,7 @@ function renderList() {
         <div class="song-title">${esc(s.title)}</div>
         ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
       </div>
-      ${s.key ? `<span class="song-key">Key: ${esc(s.key)}</span>` : ''}
+      ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
     </div>
   `).join('');
 }
@@ -234,7 +234,7 @@ function renderPlay(s) {
   document.getElementById('play-title').textContent = s.title || '';
   document.getElementById('play-artist').textContent = s.artist || '';
   const keyEl = document.getElementById('play-key');
-  keyEl.textContent = s.key ? 'Key: ' + s.key : '';
+  keyEl.textContent = s.key ? 'Capo: ' + s.key : '';
   keyEl.style.display = s.key ? '' : 'none';
   document.getElementById('play-body').innerHTML = parseChords(s.body || '');
   document.getElementById('play-body').style.fontSize = fontSize + 'px';
@@ -263,7 +263,7 @@ function parseChords(text) {
         if (seg.type === 'chord') {
           const nextSeg = segs[i+1];
           const lyric = (nextSeg && nextSeg.type === 'lyric') ? nextSeg.val : '';
-          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${esc(lyric) || ' '}</span></span>`;
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${esc(lyric) || '　'}</span></span>`;
           if (lyric) i++;
         } else {
           if (seg.val) lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`;
