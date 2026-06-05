@@ -274,8 +274,10 @@ function openFolder(folderId) {
 
 function getSongsInCurrentFolder() {
   if (currentFolderId === null) return songs;
-  const ids = folderSongs.filter(fs => fs.folder_id === currentFolderId).map(fs => fs.song_id);
-  return songs.filter(s => ids.includes(s.id));
+  const fsList = folderSongs
+    .filter(fs => fs.folder_id === currentFolderId)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  return fsList.map(fs => songs.find(s => s.id === fs.song_id)).filter(Boolean);
 }
 
 function toggleSortMode() {
