@@ -18,6 +18,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge.warn{color:#7A5C00;border-color:#E5C04B}
 .view{display:none;flex:1;flex-direction:column}
 .view.on{display:flex}
+.folder-list{flex:1;overflow-y:auto;padding:8px}
+.folder-item{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.folder-item:hover{background:var(--bg2);border-color:var(--border)}
+.folder-icon{font-size:22px;flex-shrink:0}
+.folder-info{flex:1;min-width:0}
+.folder-name{font-size:14px;font-weight:600;color:var(--text)}
+.folder-count{font-size:12px;color:var(--text2);margin-top:2px}
+.breadcrumb{padding:8px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.breadcrumb .bc-link{cursor:pointer;color:var(--acc)}
+.breadcrumb .bc-link:hover{text-decoration:underline}
 .search-bar{padding:10px 14px;border-bottom:1px solid var(--border)}
 .search-bar input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg2);color:var(--text)}
 .song-list{flex:1;overflow-y:auto;padding:8px}
@@ -66,18 +76,26 @@ input[type=range]{width:80px;accent-color:var(--acc)}
     <span class="badge" id="status-badge">読込中...</span>
   </div>
 
-  <!-- 曲一覧 -->
-  <div class="view on" id="list-view">
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderList()">
-    </div>
-    <div class="song-list" id="song-list">
-      <div class="empty"><div class="empty-icon">♪</div><div>読み込み中...</div></div>
-    </div>
+  <!-- フォルダ一覧 -->
+  <div class="view on" id="folder-view">
+    <div class="folder-list" id="folder-list"></div>
     <div class="list-footer">
       <button class="btn primary" onclick="startSync()">☁️ データを更新する</button>
       <div class="sync-info" id="sync-info">最終更新：未取得</div>
     </div>
+  </div>
+
+  <!-- 曲一覧 -->
+  <div class="view" id="list-view">
+    <div class="breadcrumb">
+      <span class="bc-link" onclick="showView('folder')">🏠 ホーム</span>
+      <span>›</span>
+      <span id="breadcrumb-folder"></span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderSongList()">
+    </div>
+    <div class="song-list" id="song-list"></div>
   </div>
 
   <!-- 演奏 -->
@@ -88,7 +106,7 @@ input[type=range]{width:80px;accent-color:var(--acc)}
         <div class="play-artist" id="play-artist"></div>
       </div>
       <span class="song-key" id="play-key"></span>
-      <button class="btn sm" onclick="showView('list')">☰</button>
+      <button class="btn sm" onclick="showView('list');renderSongList()">☰</button>
     </div>
     <div class="controls">
       <div class="ctrl-row">
@@ -120,51 +138,52 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyReu53s4SY19VE4SjyUANV6YIGw6iVkp32Wd4BvLzr8glJNG5WsMZD9ezTr5WmVwkgGA/exec';
-const STORAGE_KEY = 'chord_offline_songs';
+const STORAGE_KEY = 'chord_offline_data';
 const STORAGE_DATE_KEY = 'chord_offline_date';
 
-let songs = [];
+let songs = [], folders = [], folderSongs = [];
+let currentFolderId = null;
 let currentPlayId = null;
-let scrollTimer = null;
-let scrolling = false;
-let fontSize = 17;
-let scrollSpeed = 3;
+let scrollTimer = null, scrolling = false;
+let fontSize = 17, scrollSpeed = 3;
 
-// 起動時：ローカルデータを読み込む
 function init() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
-      songs = JSON.parse(raw);
+      const data = JSON.parse(raw);
+      songs      = (data.songs      || []).sort((a,b) => (a.order||0)-(b.order||0));
+      folders    = data.folders     || [];
+      folderSongs= (data.folderSongs|| []).sort((a,b) => (a.order||0)-(b.order||0));
       const date = localStorage.getItem(STORAGE_DATE_KEY);
       setBadge('オフライン', '');
       document.getElementById('sync-info').textContent = '最終更新：' + (date || '不明');
-    } catch(e) {
-      songs = [];
-    }
+    } catch(e) { songs = []; folders = []; folderSongs = []; }
   } else {
     setBadge('データなし', 'warn');
     document.getElementById('sync-info').textContent = '「データを更新する」で取得してください';
   }
-  renderList();
+  renderFolderList();
 }
 
-// オンラインで最新データを取得してローカルに保存
 async function startSync() {
   showOverlay(true, 'データを取得中...', 'スプレッドシートから曲データを読み込んでいます');
   try {
     const q = new URLSearchParams({ action: 'getAll' }).toString();
     const res = await fetch(GAS_URL + '?' + q, { method: 'GET', redirect: 'follow', mode: 'cors' });
     const data = await res.json();
-    if (Array.isArray(data)) {
-      songs = data;
+    if (data && data.songs) {
+      songs       = (data.songs      || []).sort((a,b) => (a.order||0)-(b.order||0));
+      folders     = data.folders     || [];
+      folderSongs = (data.folderSongs|| []).sort((a,b) => (a.order||0)-(b.order||0));
       const now = new Date().toLocaleString('ja-JP');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ songs, folders, folderSongs }));
       localStorage.setItem(STORAGE_DATE_KEY, now);
-      showOverlay(true, '更新完了！', `${songs.length}曲を保存しました\nこれでオフラインでも見られます`, true);
+      const total = songs.length;
+      showOverlay(true, '更新完了！', `${total}曲を保存しました\nこれでオフラインでも見られます`, true);
       setBadge('オフライン', '');
       document.getElementById('sync-info').textContent = '最終更新：' + now;
-      renderList();
+      renderFolderList();
     } else {
       showOverlay(true, '接続エラー', 'スプレッドシートに接続できませんでした\nWi-Fiを確認してください', true, true);
     }
@@ -173,7 +192,7 @@ async function startSync() {
   }
 }
 
-function showOverlay(show, title, msg, showClose, isErr) {
+function showOverlay(show, title, msg, showClose) {
   const overlay = document.getElementById('sync-overlay');
   const card = document.getElementById('sync-card');
   if (!show) { overlay.style.display = 'none'; return; }
@@ -196,16 +215,56 @@ function showView(v) {
   window.scrollTo(0, 0);
 }
 
-function renderList() {
+function renderFolderList() {
+  let html = `
+    <div class="folder-item" onclick="openFolder(null)">
+      <div class="folder-icon">🎵</div>
+      <div class="folder-info">
+        <div class="folder-name">全曲</div>
+        <div class="folder-count">${songs.length}曲</div>
+      </div>
+    </div>`;
+  folders.forEach(f => {
+    const count = folderSongs.filter(fs => fs.folder_id === f.id).length;
+    html += `
+      <div class="folder-item" onclick="openFolder('${esc(f.id)}')">
+        <div class="folder-icon">📂</div>
+        <div class="folder-info">
+          <div class="folder-name">${esc(f.name)}</div>
+          <div class="folder-count">${count}曲</div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('folder-list').innerHTML = html;
+  showView('folder');
+}
+
+function openFolder(folderId) {
+  currentFolderId = folderId;
+  const name = folderId ? (folders.find(f => f.id === folderId)?.name || '') : '全曲';
+  document.getElementById('breadcrumb-folder').textContent = name;
+  document.getElementById('search-input').value = '';
+  showView('list');
+  renderSongList();
+}
+
+function getSongsInCurrentFolder() {
+  if (currentFolderId === null) return songs;
+  const fsList = folderSongs
+    .filter(fs => fs.folder_id === currentFolderId)
+    .sort((a,b) => (a.order||0)-(b.order||0));
+  return fsList.map(fs => songs.find(s => s.id === fs.song_id)).filter(Boolean);
+}
+
+function renderSongList() {
   const q = (document.getElementById('search-input').value || '').toLowerCase();
-  const filtered = songs.filter(s =>
-    (s.title || '').toLowerCase().includes(q) ||
-    (s.artist || '').toLowerCase().includes(q)
+  const filtered = getSongsInCurrentFolder().filter(s =>
+    !q || (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q)
   );
   const el = document.getElementById('song-list');
   if (!filtered.length) {
     el.innerHTML = songs.length === 0
-      ? '<div class="empty"><div class="empty-icon">♪</div><div>曲データがありません<br>下の「データを更新する」を押してください</div></div>'
+      ? '<div class="empty"><div class="empty-icon">♪</div><div>曲データがありません<br>「データを更新する」を押してください</div></div>'
       : '<div class="empty"><div class="empty-icon">🔍</div><div>該当する曲がありません</div></div>';
     return;
   }
@@ -222,7 +281,7 @@ function renderList() {
 }
 
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function playSong(id) {
@@ -247,72 +306,38 @@ function parseChords(text) {
   let html = '';
   for (const line of text.split('\n')) {
     if (!line.trim()) { html += '<div style="height:0.6em"></div>'; continue; }
-    if (/^[^\[]+:$/.test(line.trim())) {
-      html += `<div class="section-label">${esc(line.trim().slice(0,-1))}</div>`;
-      continue;
-    }
+    if (/^[^\[]+:$/.test(line.trim())) { html += `<div class="section-label">${esc(line.trim().slice(0,-1))}</div>`; continue; }
     if (line.includes('[')) {
       const segs = line.split(/(\[[^\]]+\])/g).map(p =>
-        p.startsWith('[') && p.endsWith(']')
-          ? { type:'chord', val: p.slice(1,-1) }
-          : { type:'lyric', val: p }
+        p.startsWith('[') && p.endsWith(']') ? { type:'chord', val: p.slice(1,-1) } : { type:'lyric', val: p }
       );
       let lineHtml = '<div class="chord-lyric-line">';
       for (let i = 0; i < segs.length; i++) {
         const seg = segs[i];
         if (seg.type === 'chord') {
-          const nextSeg = segs[i+1];
-          const lyric = (nextSeg && nextSeg.type === 'lyric') ? nextSeg.val : '';
-          const displayLyric = lyric ? esc(lyric) : `<span style="display:inline-block;min-width:${seg.val.length + 2}ch"> </span>`;
-          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${displayLyric}</span></span>`;
+          const nextSeg = segs[i+1]; const lyric = (nextSeg && nextSeg.type === 'lyric') ? nextSeg.val : '';
+          const dl = lyric ? esc(lyric) : `<span style="display:inline-block;min-width:${seg.val.length+2}ch"> </span>`;
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${dl}</span></span>`;
           if (lyric) i++;
-        } else {
-          if (seg.val) lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`;
-        }
+        } else { if (seg.val) lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`; }
       }
-      lineHtml += '</div>';
-      html += lineHtml;
-    } else {
-      html += `<div class="lyric-line">${esc(line)}</div>`;
-    }
+      html += lineHtml + '</div>';
+    } else { html += `<div class="lyric-line">${esc(line)}</div>`; }
   }
   return html;
 }
 
-function updateFont(v) {
-  fontSize = parseInt(v);
-  document.getElementById('font-val').textContent = fontSize + 'px';
-  const pb = document.getElementById('play-body');
-  if (pb) pb.style.fontSize = fontSize + 'px';
-}
-
-function updateSpeed(v) {
-  scrollSpeed = parseInt(v);
-  document.getElementById('speed-val').textContent = scrollSpeed;
-  if (scrolling) { stopScroll(); startScroll(); }
-}
-
-function toggleScroll() {
-  scrolling ? stopScroll() : startScroll();
-}
-
+function updateFont(v) { fontSize = parseInt(v); document.getElementById('font-val').textContent = fontSize+'px'; const pb = document.getElementById('play-body'); if(pb) pb.style.fontSize = fontSize+'px'; }
+function updateSpeed(v) { scrollSpeed = parseInt(v); document.getElementById('speed-val').textContent = scrollSpeed; if(scrolling){stopScroll();startScroll();} }
+function toggleScroll() { scrolling ? stopScroll() : startScroll(); }
 function startScroll() {
-  scrolling = true;
-  document.getElementById('scroll-btn').textContent = '⏸ 一時停止';
+  scrolling = true; document.getElementById('scroll-btn').textContent = '⏸ 一時停止';
   const interval = Math.round(110 - scrollSpeed * 9);
-  scrollTimer = setInterval(() => {
-    window.scrollBy(0, 1);
-    const atBottom = (window.innerHeight + window.scrollY) >= document.body.scrollHeight - 2;
-    if (atBottom) stopScroll();
-  }, interval);
+  scrollTimer = setInterval(() => { window.scrollBy(0,1); if((window.innerHeight+window.scrollY)>=document.body.scrollHeight-2) stopScroll(); }, interval);
 }
-
 function stopScroll() {
-  scrolling = false;
-  clearInterval(scrollTimer);
-  scrollTimer = null;
-  const btn = document.getElementById('scroll-btn');
-  if (btn) btn.textContent = '▶ スクロール';
+  scrolling = false; clearInterval(scrollTimer); scrollTimer = null;
+  const btn = document.getElementById('scroll-btn'); if(btn) btn.textContent = '▶ スクロール';
 }
 
 init();
