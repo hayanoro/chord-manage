@@ -79,6 +79,10 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .modal h2{font-size:15px;color:var(--text)}
 .modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg2);color:var(--text);font-family:inherit}
 .modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.drag-handle{cursor:grab;color:var(--text2);font-size:16px;padding:0 4px;user-select:none;touch-action:none}
+.drag-handle:active{cursor:grabbing}
+.song-item.dragging{opacity:0.4;border:1px dashed var(--acc)}
+.song-item.drag-over{border-top:2px solid var(--acc)}
 </style>
 </head>
 <body>
@@ -103,8 +107,10 @@ input[type=range]{width:80px;accent-color:var(--acc)}
       <span class="bc-link" onclick="showView('folder')">🏠 ホーム</span>
       <span>›</span>
       <span id="breadcrumb-folder"></span>
+      <span style="flex:1"></span>
+      <button class="sort-btn" id="sort-toggle-btn" onclick="toggleSortMode()">⇅ 並び替え</button>
     </div>
-    <div class="search-bar">
+    <div class="search-bar" id="search-bar-wrap">
       <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderSongList()">
     </div>
     <div class="song-list" id="song-list"></div>
@@ -187,6 +193,8 @@ let currentPlayId = null;
 let scrollTimer = null, scrolling = false;
 let fontSize = 17, scrollSpeed = 3;
 let folderModalMode = 'new', folderModalTargetId = null;
+let sortMode = false;
+let dragSrcId = null;
 
 async function gasGet(params) {
   try {
@@ -200,7 +208,9 @@ async function loadAll() {
   setBadge('同期中...', '');
   const data = await gasGet({ action: 'getAll' });
   if (data && data.songs) {
-    songs = data.songs; folders = data.folders || []; folderSongs = data.folderSongs || [];
+    songs = data.songs.sort((a,b) => (a.order||0) - (b.order||0));
+    folders = data.folders || [];
+    folderSongs = (data.folderSongs || []).sort((a,b) => (a.order||0) - (b.order||0));
     setBadge('同期済み ✓', 'ok');
   } else {
     setBadge('接続エラー', 'err');
@@ -250,6 +260,11 @@ function renderFolderList() {
 
 function openFolder(folderId) {
   currentFolderId = folderId;
+  sortMode = false;
+  const btn = document.getElementById('sort-toggle-btn');
+  if (btn) { btn.textContent = '⇅ 並び替え'; btn.className = 'sort-btn'; }
+  const sbw = document.getElementById('search-bar-wrap');
+  if (sbw) sbw.style.display = '';
   const name = folderId ? (folders.find(f => f.id === folderId)?.name || '') : '全曲';
   document.getElementById('breadcrumb-folder').textContent = name;
   document.getElementById('search-input').value = '';
@@ -263,10 +278,19 @@ function getSongsInCurrentFolder() {
   return songs.filter(s => ids.includes(s.id));
 }
 
+function toggleSortMode() {
+  sortMode = !sortMode;
+  const btn = document.getElementById('sort-toggle-btn');
+  btn.textContent = sortMode ? '✓ 完了' : '⇅ 並び替え';
+  btn.className = 'sort-btn' + (sortMode ? ' active' : '');
+  document.getElementById('search-bar-wrap').style.display = sortMode ? 'none' : '';
+  renderSongList();
+}
+
 function renderSongList() {
-  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const q = sortMode ? '' : (document.getElementById('search-input').value || '').toLowerCase();
   const filtered = getSongsInCurrentFolder().filter(s =>
-    (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q)
+    !q || (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q)
   );
   const el = document.getElementById('song-list');
   if (!filtered.length) {
@@ -274,16 +298,107 @@ function renderSongList() {
     return;
   }
   el.innerHTML = filtered.map(s => `
-    <div class="song-item" onclick="playSong('${esc(s.id)}')">
-      <div style="font-size:22px">🎵</div>
+    <div class="song-item" id="si-${esc(s.id)}" draggable="${sortMode}" 
+      onclick="${sortMode ? '' : `playSong('${esc(s.id)}')`}"
+      ondragstart="onDragStart(event,'${esc(s.id)}')"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event,'${esc(s.id)}')"
+      ondragend="onDragEnd(event)">
+      ${sortMode ? `<span class="drag-handle">☰</span>` : '<div style="font-size:22px">🎵</div>'}
       <div class="song-info">
         <div class="song-title">${esc(s.title)}</div>
         ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
       </div>
       ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
-      <button class="btn sm" onclick="event.stopPropagation();editSong('${esc(s.id)}')">✏️</button>
+      ${sortMode ? '' : `<button class="btn sm" onclick="event.stopPropagation();editSong('${esc(s.id)}')">✏️</button>`}
     </div>
   `).join('');
+
+  // タッチ対応ドラッグ
+  if (sortMode) setupTouchDrag();
+}
+
+function onDragStart(e, id) {
+  dragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => document.getElementById('si-' + id)?.classList.add('dragging'), 0);
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDragEnd(e) {
+  document.querySelectorAll('.song-item').forEach(el => el.classList.remove('dragging','drag-over'));
+}
+function onDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragSrcId || dragSrcId === targetId) return;
+  reorderSongs(dragSrcId, targetId);
+}
+
+function reorderSongs(srcId, targetId) {
+  const list = getSongsInCurrentFolder();
+  const srcIdx = list.findIndex(s => s.id === srcId);
+  const tgtIdx = list.findIndex(s => s.id === targetId);
+  if (srcIdx < 0 || tgtIdx < 0) return;
+  const [moved] = list.splice(srcIdx, 1);
+  list.splice(tgtIdx, 0, moved);
+
+  if (currentFolderId === null) {
+    // 全曲の並び替え → songsのorderを更新
+    list.forEach((s, i) => { const song = songs.find(x => x.id === s.id); if (song) song.order = i; });
+    saveOrder('updateSongOrder', list.map((s,i) => ({ id: s.id, order: i })));
+  } else {
+    // フォルダ内の並び替え → folderSongsのorderを更新
+    list.forEach((s, i) => {
+      const fs = folderSongs.find(x => x.folder_id === currentFolderId && x.song_id === s.id);
+      if (fs) fs.order = i;
+    });
+    saveOrder('updateFolderSongOrder', list.map((s,i) => ({ folder_id: currentFolderId, song_id: s.id, order: i })));
+  }
+  renderSongList();
+}
+
+async function saveOrder(action, items) {
+  setBadge('保存中...', '');
+  const res = await gasGet({ action, items: JSON.stringify(items) });
+  setBadge(res && res.success ? '保存しました ✓' : '保存エラー', res && res.success ? 'ok' : 'err');
+}
+
+function setupTouchDrag() {
+  let touchSrcId = null, clone = null;
+  document.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('touchstart', e => {
+      const item = handle.closest('.song-item');
+      touchSrcId = item.id.replace('si-', '');
+      clone = item.cloneNode(true);
+      clone.style.cssText = `position:fixed;opacity:0.7;pointer-events:none;width:${item.offsetWidth}px;z-index:999;background:var(--bg);border-radius:8px;border:1px solid var(--acc)`;
+      document.body.appendChild(clone);
+    }, { passive: true });
+    handle.addEventListener('touchmove', e => {
+      if (!clone) return;
+      const t = e.touches[0];
+      clone.style.left = t.clientX - clone.offsetWidth/2 + 'px';
+      clone.style.top  = t.clientY - 30 + 'px';
+      const el = document.elementFromPoint(t.clientX, t.clientY)?.closest('.song-item');
+      document.querySelectorAll('.song-item').forEach(i => i.classList.remove('drag-over'));
+      if (el) el.classList.add('drag-over');
+    }, { passive: true });
+    handle.addEventListener('touchend', e => {
+      if (clone) { clone.remove(); clone = null; }
+      document.querySelectorAll('.song-item').forEach(i => i.classList.remove('drag-over'));
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY)?.closest('.song-item');
+      if (el && touchSrcId) {
+        const targetId = el.id.replace('si-', '');
+        if (targetId !== touchSrcId) reorderSongs(touchSrcId, targetId);
+      }
+      touchSrcId = null;
+    });
+  });
 }
 
 function renderFolderChips(songId) {
