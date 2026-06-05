@@ -17,6 +17,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sync-badge.err{color:#993C1D;border-color:#F0997B}
 .view{display:none;flex:1;flex-direction:column}
 .view.on{display:flex}
+.folder-list{flex:1;overflow-y:auto;padding:8px}
+.folder-item{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.folder-item:hover{background:var(--bg2);border-color:var(--border)}
+.folder-icon{font-size:22px;flex-shrink:0}
+.folder-info{flex:1;min-width:0}
+.folder-name{font-size:14px;font-weight:600;color:var(--text)}
+.folder-count{font-size:12px;color:var(--text2);margin-top:2px}
+.folder-actions{display:flex;gap:4px}
 .search-bar{padding:10px 14px;border-bottom:1px solid var(--border)}
 .search-bar input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg2);color:var(--text)}
 .song-list{flex:1;overflow-y:auto;padding:8px}
@@ -26,19 +34,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .song-title{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .song-artist{font-size:12px;color:var(--text2);margin-top:2px}
 .song-key{font-size:12px;color:var(--text2);background:var(--bg2);padding:2px 8px;border-radius:20px;border:1px solid var(--border);flex-shrink:0}
-.list-footer{padding:10px 14px;border-top:1px solid var(--border)}
+.list-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px}
 .btn{padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;background:none;color:var(--text);font-family:inherit}
 .btn:hover{background:var(--bg2)}
-.btn.primary{background:var(--acc);color:#fff;border-color:var(--acc);width:100%;font-size:14px;padding:10px}
+.btn.primary{background:var(--acc);color:#fff;border-color:var(--acc);font-size:14px;padding:10px}
 .btn.primary:hover{background:var(--acc2)}
 .btn.danger{color:#993C1D}
 .btn.sm{padding:5px 10px;font-size:12px}
+.btn.full{width:100%}
 .edit-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 .edit-header input{flex:1;min-width:90px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);font-family:inherit}
-.key-in{flex:0 0 70px!important}
+.key-in{flex:0 0 80px!important}
 .edit-help{padding:8px 14px;font-size:12px;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border)}
 .edit-area{flex:1;display:flex;flex-direction:column}
 .edit-area textarea{flex:1;width:100%;padding:14px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;border:none;outline:none;resize:none;background:var(--bg);color:var(--text);min-height:300px}
+.folder-assign{padding:10px 14px;border-top:1px solid var(--border);background:var(--bg2)}
+.folder-assign-title{font-size:12px;color:var(--text2);margin-bottom:8px}
+.folder-chips{display:flex;flex-wrap:wrap;gap:6px}
+.folder-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:var(--bg);color:var(--text)}
+.folder-chip.active{background:var(--acc);color:#fff;border-color:var(--acc)}
 .edit-foot{padding:8px 14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
 .play-header{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:52px;z-index:9}
 .play-title{font-size:15px;font-weight:600;flex:1;color:var(--text)}
@@ -49,8 +63,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 input[type=range]{width:80px;accent-color:var(--acc)}
 .ctrl-val{font-size:12px;font-weight:600;min-width:28px;color:var(--text)}
 #play-content{flex:1;padding:16px 18px;cursor:pointer}
-.chord-token{color:var(--acc);font-family:'Courier New',monospace;font-weight:600}
-.chord-line{font-family:'Courier New',monospace;white-space:pre-wrap;line-height:1.5;font-size:0.88em;color:var(--acc)}
 .lyric-line{line-height:1.85;color:var(--text)}
 .section-label{font-size:11px;font-weight:700;color:var(--acc);margin-top:1.2em;margin-bottom:0.3em;letter-spacing:.07em;text-transform:uppercase}
 .chord-lyric-line{display:flex;flex-wrap:wrap;align-items:flex-end;line-height:1;margin-bottom:0.6em}
@@ -59,6 +71,14 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .cl-lyric{color:var(--text);line-height:1.4;white-space:pre}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text2);text-align:center}
 .empty-icon{font-size:40px;opacity:.3}
+.breadcrumb{padding:8px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.breadcrumb .bc-link{cursor:pointer;color:var(--acc)}
+.breadcrumb .bc-link:hover{text-decoration:underline}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg);border-radius:14px;padding:22px 20px;max-width:320px;width:90%;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-size:15px;color:var(--text)}
+.modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg2);color:var(--text);font-family:inherit}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -66,19 +86,30 @@ input[type=range]{width:80px;accent-color:var(--acc)}
   <div class="topbar">
     <h1>🎸 コード譜ノート</h1>
     <span class="sync-badge" id="sync-badge">同期中...</span>
-    <button class="btn sm" onclick="loadSongs()" title="再読み込み">↻</button>
+    <button class="btn sm" onclick="loadAll()" title="再読み込み">↻</button>
+  </div>
+
+  <!-- フォルダ一覧 -->
+  <div class="view on" id="folder-view">
+    <div class="folder-list" id="folder-list"></div>
+    <div class="list-footer">
+      <button class="btn primary full" onclick="showNewFolderModal()">＋ セットリストを作成</button>
+    </div>
   </div>
 
   <!-- 曲一覧 -->
-  <div class="view on" id="list-view">
+  <div class="view" id="list-view">
+    <div class="breadcrumb">
+      <span class="bc-link" onclick="showView('folder')">🏠 ホーム</span>
+      <span>›</span>
+      <span id="breadcrumb-folder"></span>
+    </div>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderList()">
+      <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderSongList()">
     </div>
-    <div class="song-list" id="song-list">
-      <div class="empty"><div class="empty-icon">♪</div><div>読み込み中...</div></div>
-    </div>
+    <div class="song-list" id="song-list"></div>
     <div class="list-footer">
-      <button class="btn primary" onclick="newSong()">＋ 新しい曲を追加</button>
+      <button class="btn primary full" onclick="newSong()">＋ 新しい曲を追加</button>
     </div>
   </div>
 
@@ -89,14 +120,16 @@ input[type=range]{width:80px;accent-color:var(--acc)}
       <input type="text" id="edit-artist" placeholder="アーティスト">
       <input type="text" id="edit-key" class="key-in" placeholder="Capo (3)">
       <button class="btn primary" onclick="saveSong()" style="width:auto;padding:8px 14px">💾 保存</button>
-      <button class="btn" onclick="showView('list')">戻る</button>
+      <button class="btn" onclick="cancelEdit()">戻る</button>
       <button class="btn danger sm" id="del-btn" onclick="deleteSong()" style="display:none">🗑</button>
     </div>
-    <div class="edit-help">
-      コードは [Am] のように [ ] で囲む。セクションは「Aメロ:」のように末尾に : をつける。
-    </div>
+    <div class="edit-help">コードは [Am] のように [ ] で囲む。セクションは「Aメロ:」のように末尾に : をつける。</div>
     <div class="edit-area">
       <textarea id="edit-body" placeholder="例：&#10;Aメロ:&#10;[G]春の [Em]光が [Am]降り注ぐ&#10;[C]君の [G]笑顔 [D]が眩しい"></textarea>
+    </div>
+    <div class="folder-assign">
+      <div class="folder-assign-title">📂 セットリストに追加（複数選択可）</div>
+      <div class="folder-chips" id="folder-chips"></div>
     </div>
     <div class="edit-foot">
       <button class="btn" onclick="previewSong()">▶ 演奏画面でプレビュー</button>
@@ -112,7 +145,7 @@ input[type=range]{width:80px;accent-color:var(--acc)}
       </div>
       <span class="song-key" id="play-key"></span>
       <button class="btn sm" onclick="editCurrent()">✏️</button>
-      <button class="btn sm" onclick="showView('list')">☰</button>
+      <button class="btn sm" onclick="showView('list');renderSongList()">☰</button>
     </div>
     <div class="controls">
       <div class="ctrl-row">
@@ -133,41 +166,46 @@ input[type=range]{width:80px;accent-color:var(--acc)}
   </div>
 </div>
 
+<!-- フォルダ名入力モーダル -->
+<div class="modal-overlay" id="folder-modal" style="display:none" onclick="if(event.target===this)closeFolderModal()">
+  <div class="modal">
+    <h2 id="folder-modal-title">セットリストを作成</h2>
+    <input type="text" id="folder-modal-input" placeholder="セットリスト名" />
+    <div class="modal-btns">
+      <button class="btn" onclick="closeFolderModal()">キャンセル</button>
+      <button class="btn primary" style="width:auto;padding:8px 16px" onclick="saveFolderModal()">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyReu53s4SY19VE4SjyUANV6YIGw6iVkp32Wd4BvLzr8glJNG5WsMZD9ezTr5WmVwkgGA/exec';
-let songs = [];
-let editingId = null;
+let songs = [], folders = [], folderSongs = [];
+let currentFolderId = null;
+let editingId = null, editingFolderIds = new Set();
 let currentPlayId = null;
-let scrollTimer = null;
-let scrolling = false;
-let fontSize = 17;
-let scrollSpeed = 3;
+let scrollTimer = null, scrolling = false;
+let fontSize = 17, scrollSpeed = 3;
+let folderModalMode = 'new', folderModalTargetId = null;
 
 async function gasGet(params) {
   try {
     const q = new URLSearchParams(params).toString();
-    const res = await fetch(GAS_URL + '?' + q, {
-      method: 'GET',
-      redirect: 'follow',
-      mode: 'cors',
-    });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch(e) {
-    return { error: e.message };
-  }
+    const res = await fetch(GAS_URL + '?' + q, { method: 'GET', redirect: 'follow', mode: 'cors' });
+    return JSON.parse(await res.text());
+  } catch(e) { return { error: e.message }; }
 }
 
-async function loadSongs() {
+async function loadAll() {
   setBadge('同期中...', '');
   const data = await gasGet({ action: 'getAll' });
-  if (Array.isArray(data)) {
-    songs = data;
+  if (data && data.songs) {
+    songs = data.songs; folders = data.folders || []; folderSongs = data.folderSongs || [];
     setBadge('同期済み ✓', 'ok');
   } else {
     setBadge('接続エラー', 'err');
   }
-  renderList();
+  renderFolderList();
 }
 
 function setBadge(text, cls) {
@@ -183,15 +221,56 @@ function showView(v) {
   window.scrollTo(0, 0);
 }
 
-function renderList() {
+function renderFolderList() {
+  let html = `
+    <div class="folder-item" onclick="openFolder(null)">
+      <div class="folder-icon">🎵</div>
+      <div class="folder-info">
+        <div class="folder-name">全曲</div>
+        <div class="folder-count">${songs.length}曲</div>
+      </div>
+    </div>`;
+  folders.forEach(f => {
+    const count = folderSongs.filter(fs => fs.folder_id === f.id).length;
+    html += `
+      <div class="folder-item" onclick="openFolder('${esc(f.id)}')">
+        <div class="folder-icon">📂</div>
+        <div class="folder-info">
+          <div class="folder-name">${esc(f.name)}</div>
+          <div class="folder-count">${count}曲</div>
+        </div>
+        <div class="folder-actions" onclick="event.stopPropagation()">
+          <button class="btn sm" onclick="showRenameFolderModal('${esc(f.id)}','${esc(f.name)}')">✏️</button>
+          <button class="btn sm danger" onclick="confirmDeleteFolder('${esc(f.id)}','${esc(f.name)}')">🗑</button>
+        </div>
+      </div>`;
+  });
+  document.getElementById('folder-list').innerHTML = html;
+}
+
+function openFolder(folderId) {
+  currentFolderId = folderId;
+  const name = folderId ? (folders.find(f => f.id === folderId)?.name || '') : '全曲';
+  document.getElementById('breadcrumb-folder').textContent = name;
+  document.getElementById('search-input').value = '';
+  showView('list');
+  renderSongList();
+}
+
+function getSongsInCurrentFolder() {
+  if (currentFolderId === null) return songs;
+  const ids = folderSongs.filter(fs => fs.folder_id === currentFolderId).map(fs => fs.song_id);
+  return songs.filter(s => ids.includes(s.id));
+}
+
+function renderSongList() {
   const q = (document.getElementById('search-input').value || '').toLowerCase();
-  const filtered = songs.filter(s =>
-    (s.title || '').toLowerCase().includes(q) ||
-    (s.artist || '').toLowerCase().includes(q)
+  const filtered = getSongsInCurrentFolder().filter(s =>
+    (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q)
   );
   const el = document.getElementById('song-list');
   if (!filtered.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>曲がありません<br>「新しい曲を追加」から登録してください</div></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>曲がありません</div></div>';
     return;
   }
   el.innerHTML = filtered.map(s => `
@@ -207,17 +286,34 @@ function renderList() {
   `).join('');
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function renderFolderChips(songId) {
+  const el = document.getElementById('folder-chips');
+  if (!folders.length) { el.innerHTML = '<span style="font-size:12px;color:var(--text2)">セットリストがまだありません</span>'; return; }
+  const active = folderSongs.filter(fs => fs.song_id === songId).map(fs => fs.folder_id);
+  editingFolderIds = new Set(active);
+  el.innerHTML = folders.map(f =>
+    `<span class="folder-chip ${editingFolderIds.has(f.id) ? 'active' : ''}" onclick="toggleFolderChip('${esc(f.id)}')">${esc(f.name)}</span>`
+  ).join('');
+}
+
+function toggleFolderChip(folderId) {
+  editingFolderIds.has(folderId) ? editingFolderIds.delete(folderId) : editingFolderIds.add(folderId);
+  document.querySelectorAll('.folder-chip').forEach((chip, i) => {
+    chip.className = 'folder-chip' + (folders[i] && editingFolderIds.has(folders[i].id) ? ' active' : '');
+  });
 }
 
 function newSong() {
   editingId = null;
-  document.getElementById('edit-title').value = '';
-  document.getElementById('edit-artist').value = '';
-  document.getElementById('edit-key').value = '';
-  document.getElementById('edit-body').value = '';
+  editingFolderIds = new Set(currentFolderId ? [currentFolderId] : []);
+  ['edit-title','edit-artist','edit-key','edit-body'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('del-btn').style.display = 'none';
+  renderFolderChips(null);
+  if (currentFolderId) {
+    setTimeout(() => document.querySelectorAll('.folder-chip').forEach((chip, i) => {
+      if (folders[i] && editingFolderIds.has(folders[i].id)) chip.classList.add('active');
+    }), 0);
+  }
   showView('edit');
 }
 
@@ -230,8 +326,11 @@ function editSong(id) {
   document.getElementById('edit-key').value = s.key || '';
   document.getElementById('edit-body').value = s.body || '';
   document.getElementById('del-btn').style.display = '';
+  renderFolderChips(id);
   showView('edit');
 }
+
+function cancelEdit() { showView('list'); renderSongList(); }
 
 async function saveSong() {
   const song = {
@@ -242,152 +341,145 @@ async function saveSong() {
     body:   document.getElementById('edit-body').value
   };
   setBadge('保存中...', '');
-  const res = await gasGet({
-    action: 'save',
-    id:     song.id,
-    title:  song.title,
-    artist: song.artist,
-    key:    song.key,
-    body:   song.body
-  });
+  const res = await gasGet({ action: 'saveSong', ...song });
   if (res && res.success) {
     if (res.id) song.id = res.id;
     const idx = songs.findIndex(x => x.id === song.id);
     if (idx >= 0) songs[idx] = song; else songs.push(song);
+    const prev = folderSongs.filter(fs => fs.song_id === song.id).map(fs => fs.folder_id);
+    const toAdd    = [...editingFolderIds].filter(id => !prev.includes(id));
+    const toRemove = prev.filter(id => !editingFolderIds.has(id));
+    for (const fid of toAdd)    await gasGet({ action: 'addSongToFolder',      folder_id: fid, song_id: song.id });
+    for (const fid of toRemove) await gasGet({ action: 'removeSongFromFolder', folder_id: fid, song_id: song.id });
+    folderSongs = folderSongs.filter(fs => !(fs.song_id === song.id && toRemove.includes(fs.folder_id)));
+    for (const fid of toAdd) folderSongs.push({ folder_id: fid, song_id: song.id });
     setBadge('保存しました ✓', 'ok');
-    showView('list');
-    renderList();
+    showView('list'); renderSongList(); renderFolderList();
   } else {
     setBadge('保存エラー', 'err');
-    alert('保存に失敗しました。接続を確認してください。');
+    alert('保存に失敗しました。');
   }
 }
 
 async function deleteSong() {
-  if (!editingId) return;
-  if (!confirm('この曲を削除しますか？')) return;
+  if (!editingId || !confirm('この曲を削除しますか？')) return;
   setBadge('削除中...', '');
-  const res = await gasGet({ action: 'delete', id: editingId });
+  const res = await gasGet({ action: 'deleteSong', id: editingId });
   if (res && res.success) {
     songs = songs.filter(x => x.id !== editingId);
+    folderSongs = folderSongs.filter(fs => fs.song_id !== editingId);
     editingId = null;
     setBadge('削除しました', 'ok');
-    showView('list');
-    renderList();
-  } else {
-    setBadge('削除エラー', 'err');
-  }
+    showView('list'); renderSongList(); renderFolderList();
+  } else { setBadge('削除エラー', 'err'); }
+}
+
+function showNewFolderModal() {
+  folderModalMode = 'new'; folderModalTargetId = null;
+  document.getElementById('folder-modal-title').textContent = 'セットリストを作成';
+  document.getElementById('folder-modal-input').value = '';
+  document.getElementById('folder-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('folder-modal-input').focus(), 50);
+}
+
+function showRenameFolderModal(id, name) {
+  folderModalMode = 'rename'; folderModalTargetId = id;
+  document.getElementById('folder-modal-title').textContent = 'セットリスト名を変更';
+  document.getElementById('folder-modal-input').value = name;
+  document.getElementById('folder-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('folder-modal-input').focus(), 50);
+}
+
+function closeFolderModal() { document.getElementById('folder-modal').style.display = 'none'; }
+
+async function saveFolderModal() {
+  const name = document.getElementById('folder-modal-input').value.trim();
+  if (!name) return;
+  closeFolderModal();
+  setBadge('保存中...', '');
+  const params = { action: 'saveFolder', name };
+  if (folderModalMode === 'rename') params.id = folderModalTargetId;
+  const res = await gasGet(params);
+  if (res && res.success) {
+    if (folderModalMode === 'new') folders.push({ id: res.id, name });
+    else { const f = folders.find(x => x.id === folderModalTargetId); if (f) f.name = name; }
+    setBadge('保存しました ✓', 'ok'); renderFolderList();
+  } else { setBadge('保存エラー', 'err'); }
+}
+
+async function confirmDeleteFolder(id, name) {
+  if (!confirm(`「${name}」を削除しますか？\n（曲自体は削除されません）`)) return;
+  setBadge('削除中...', '');
+  const res = await gasGet({ action: 'deleteFolder', id });
+  if (res && res.success) {
+    folders = folders.filter(f => f.id !== id);
+    folderSongs = folderSongs.filter(fs => fs.folder_id !== id);
+    setBadge('削除しました', 'ok'); renderFolderList();
+  } else { setBadge('削除エラー', 'err'); }
 }
 
 function previewSong() {
-  const s = {
-    id:     editingId,
-    title:  document.getElementById('edit-title').value || '無題',
-    artist: document.getElementById('edit-artist').value,
-    key:    document.getElementById('edit-key').value,
-    body:   document.getElementById('edit-body').value
-  };
-  currentPlayId = editingId;
-  renderPlay(s);
+  renderPlay({ id: editingId, title: document.getElementById('edit-title').value || '無題',
+    artist: document.getElementById('edit-artist').value, key: document.getElementById('edit-key').value,
+    body: document.getElementById('edit-body').value });
 }
 
-function playSong(id) {
-  const s = songs.find(x => x.id === id);
-  if (s) { currentPlayId = id; renderPlay(s); }
-}
-
-function editCurrent() {
-  if (currentPlayId) editSong(currentPlayId);
-  else showView('edit');
-}
+function playSong(id) { const s = songs.find(x => x.id === id); if (s) { currentPlayId = id; renderPlay(s); } }
+function editCurrent() { if (currentPlayId) editSong(currentPlayId); }
 
 function renderPlay(s) {
   document.getElementById('play-title').textContent = s.title || '';
   document.getElementById('play-artist').textContent = s.artist || '';
   const keyEl = document.getElementById('play-key');
-  keyEl.textContent = s.key ? 'Capo: ' + s.key : '';
-  keyEl.style.display = s.key ? '' : 'none';
+  keyEl.textContent = s.key ? 'Capo: ' + s.key : ''; keyEl.style.display = s.key ? '' : 'none';
   document.getElementById('play-body').innerHTML = parseChords(s.body || '');
   document.getElementById('play-body').style.fontSize = fontSize + 'px';
   document.getElementById('play-content').scrollTop = 0;
-  window.scrollTo(0, 0);
-  stopScroll();
-  showView('play');
+  window.scrollTo(0, 0); stopScroll(); showView('play');
 }
 
 function parseChords(text) {
   let html = '';
   for (const line of text.split('\n')) {
     if (!line.trim()) { html += '<div style="height:0.6em"></div>'; continue; }
-    if (/^[^\[]+:$/.test(line.trim())) {
-      html += `<div class="section-label">${esc(line.trim().slice(0,-1))}</div>`;
-      continue;
-    }
+    if (/^[^\[]+:$/.test(line.trim())) { html += `<div class="section-label">${esc(line.trim().slice(0,-1))}</div>`; continue; }
     if (line.includes('[')) {
       const segs = line.split(/(\[[^\]]+\])/g).map(p =>
-        p.startsWith('[') && p.endsWith(']')
-          ? { type:'chord', val: p.slice(1,-1) }
-          : { type:'lyric', val: p }
+        p.startsWith('[') && p.endsWith(']') ? { type:'chord', val: p.slice(1,-1) } : { type:'lyric', val: p }
       );
       let lineHtml = '<div class="chord-lyric-line">';
       for (let i = 0; i < segs.length; i++) {
         const seg = segs[i];
         if (seg.type === 'chord') {
-          const nextSeg = segs[i+1];
-          const lyric = (nextSeg && nextSeg.type === 'lyric') ? nextSeg.val : '';
-          const displayLyric = lyric ? esc(lyric) : `<span style="display:inline-block;min-width:${seg.val.length + 2}ch"> </span>`;
-          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${displayLyric}</span></span>`;
+          const nextSeg = segs[i+1]; const lyric = (nextSeg && nextSeg.type === 'lyric') ? nextSeg.val : '';
+          const dl = lyric ? esc(lyric) : `<span style="display:inline-block;min-width:${seg.val.length+2}ch"> </span>`;
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${dl}</span></span>`;
           if (lyric) i++;
-        } else {
-          if (seg.val) lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`;
-        }
+        } else { if (seg.val) lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`; }
       }
-      lineHtml += '</div>';
-      html += lineHtml;
-    } else {
-      html += `<div class="lyric-line">${esc(line)}</div>`;
-    }
+      html += lineHtml + '</div>';
+    } else { html += `<div class="lyric-line">${esc(line)}</div>`; }
   }
   return html;
 }
 
-function updateFont(v) {
-  fontSize = parseInt(v);
-  document.getElementById('font-val').textContent = fontSize + 'px';
-  const pb = document.getElementById('play-body');
-  if (pb) pb.style.fontSize = fontSize + 'px';
-}
-
-function updateSpeed(v) {
-  scrollSpeed = parseInt(v);
-  document.getElementById('speed-val').textContent = scrollSpeed;
-  if (scrolling) { stopScroll(); startScroll(); }
-}
-
-function toggleScroll() {
-  scrolling ? stopScroll() : startScroll();
-}
-
+function updateFont(v) { fontSize = parseInt(v); document.getElementById('font-val').textContent = fontSize+'px'; const pb = document.getElementById('play-body'); if(pb) pb.style.fontSize = fontSize+'px'; }
+function updateSpeed(v) { scrollSpeed = parseInt(v); document.getElementById('speed-val').textContent = scrollSpeed; if(scrolling){stopScroll();startScroll();} }
+function toggleScroll() { scrolling ? stopScroll() : startScroll(); }
 function startScroll() {
-  scrolling = true;
-  document.getElementById('scroll-btn').textContent = '⏸ 一時停止';
+  scrolling = true; document.getElementById('scroll-btn').textContent = '⏸ 一時停止';
   const interval = Math.round(110 - scrollSpeed * 9);
-  scrollTimer = setInterval(() => {
-    window.scrollBy(0, 1);
-    const atBottom = (window.innerHeight + window.scrollY) >= document.body.scrollHeight - 2;
-    if (atBottom) stopScroll();
-  }, interval);
+  scrollTimer = setInterval(() => { window.scrollBy(0,1); if((window.innerHeight+window.scrollY)>=document.body.scrollHeight-2) stopScroll(); }, interval);
 }
-
 function stopScroll() {
-  scrolling = false;
-  clearInterval(scrollTimer);
-  scrollTimer = null;
-  const btn = document.getElementById('scroll-btn');
-  if (btn) btn.textContent = '▶ スクロール';
+  scrolling = false; clearInterval(scrollTimer); scrollTimer = null;
+  const btn = document.getElementById('scroll-btn'); if(btn) btn.textContent = '▶ スクロール';
 }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-loadSongs();
+document.getElementById('folder-modal-input').addEventListener('keydown', e => { if(e.key==='Enter') saveFolderModal(); });
+
+loadAll();
 </script>
 </body>
 </html>
