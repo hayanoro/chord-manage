@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Chord Note</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#5349B7">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#222}
+:root{--acc:#5349B7;--acc2:#3C3489;--bg:#fff;--bg2:#f5f5f5;--border:#e0e0e0;--text:#222;--text2:#666}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--bg2:#111;--border:#333;--text:#eee;--text2:#999}
+  body{background:#111}}
+#app{max-width:600px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+#app.offline .edit-only{display:none!important}
+.topbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
+.topbar h1{font-size:15px;font-weight:600;flex:1;color:var(--text)}
+.sync-badge{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--border);color:var(--text2)}
+.sync-badge.ok{color:#0F6E56;border-color:#5DCAA5}
+.sync-badge.err{color:#7A5C00;border-color:#E5C04B}
+.view{display:none;flex:1;flex-direction:column}
+.view.on{display:flex}
+.folder-list{flex:1;overflow-y:auto;padding:8px}
+.folder-item{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.folder-item:hover{background:var(--bg2);border-color:var(--border)}
+.folder-icon{font-size:22px;flex-shrink:0}
+.folder-info{flex:1;min-width:0}
+.folder-name{font-size:14px;font-weight:600;color:var(--text)}
+.folder-count{font-size:12px;color:var(--text2);margin-top:2px}
+.folder-actions{display:flex;gap:4px}
+.search-bar{padding:10px 14px;border-bottom:1px solid var(--border)}
+.search-bar input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg2);color:var(--text)}
+.song-list{flex:1;overflow-y:auto;padding:8px}
+.song-item{display:flex;align-items:center;gap:10px;padding:12px 13px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.song-item:hover{background:var(--bg2);border-color:var(--border)}
+.song-item.reorder{cursor:default}
+.song-item.dragging{opacity:.65;background:var(--bg2);box-shadow:0 4px 14px rgba(0,0,0,.18);border-color:var(--border);z-index:5;position:relative}
+.drag-handle{font-size:20px;line-height:1;color:var(--text2);cursor:grab;padding:8px 10px;touch-action:none;user-select:none;flex-shrink:0}
+.drag-handle:active{cursor:grabbing}
+.song-info{flex:1;min-width:0}
+.song-title{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song-artist{font-size:12px;color:var(--text2);margin-top:2px}
+.song-key{font-size:12px;color:var(--text2);background:var(--bg2);padding:2px 8px;border-radius:20px;border:1px solid var(--border);flex-shrink:0}
+.list-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px}
+.btn{padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;background:none;color:var(--text);font-family:inherit}
+.btn:hover{background:var(--bg2)}
+.btn.primary{background:var(--acc);color:#fff;border-color:var(--acc);font-size:14px;padding:10px}
+.btn.primary:hover{background:var(--acc2)}
+.btn.danger{color:#993C1D}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.edit-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.edit-header input{flex:1;min-width:90px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text);font-family:inherit}
+.key-in{flex:0 0 80px!important}
+.edit-help{padding:8px 14px;font-size:12px;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border)}
+.edit-area{flex:1;display:flex;flex-direction:column}
+.edit-area textarea{flex:1;width:100%;padding:14px;font-family:'Courier New',monospace;font-size:16px;line-height:1.9;border:none;outline:none;resize:none;background:var(--bg);color:var(--text);min-height:300px}
+.folder-assign{padding:10px 14px;border-top:1px solid var(--border);background:var(--bg2)}
+.folder-assign-title{font-size:12px;color:var(--text2);margin-bottom:8px}
+.folder-chips{display:flex;flex-wrap:wrap;gap:6px}
+.folder-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:var(--bg);color:var(--text)}
+.folder-chip.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.edit-foot{padding:8px 14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.play-header{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:52px;z-index:9}
+.play-title{font-size:15px;font-weight:600;flex:1;color:var(--text)}
+.play-artist{font-size:12px;color:var(--text2)}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg)}
+.ctrl-label{font-size:12px;color:var(--text2);white-space:nowrap}
+.ctrl-row{display:flex;align-items:center;gap:5px}
+input[type=range]{width:80px;accent-color:var(--acc)}
+.ctrl-val{font-size:12px;font-weight:600;min-width:28px;color:var(--text)}
+#play-content{flex:1;padding:16px 18px;cursor:pointer}
+.lyric-line{line-height:1.85;color:var(--text)}
+.section-label{font-size:11px;font-weight:700;color:var(--acc);margin-top:1.2em;margin-bottom:0.3em;letter-spacing:.07em;text-transform:uppercase}
+.chord-lyric-line{display:flex;flex-wrap:wrap;align-items:flex-end;line-height:1;margin-bottom:0.6em}
+.cl-chunk{display:inline-flex;flex-direction:column;align-items:flex-start}
+.cl-chord{font-family:'Courier New',monospace;font-size:0.75em;font-weight:700;color:var(--acc);line-height:1;padding-bottom:2px;white-space:nowrap}
+.cl-lyric{color:var(--text);line-height:1.4;white-space:pre}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text2);text-align:center}
+.empty-icon{font-size:40px;opacity:.3}
+.breadcrumb{padding:8px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.breadcrumb .bc-link{cursor:pointer;color:var(--acc)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg);border-radius:14px;padding:22px 20px;max-width:320px;width:90%;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-size:15px;color:var(--text)}
+.modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg2);color:var(--text);font-family:inherit}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+#offline-notice{display:none;padding:10px 14px;background:#FDF3E0;color:#7A5C00;font-size:12px;border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>🎸 Chord Note</h1>
+    <span class="sync-badge" id="sync-badge">読込中...</span>
+    <button class="btn sm" onclick="loadAll()" title="再読み込み">↻</button>
+  </div>
+
+  <div class="view on" id="folder-view">
+    <div id="offline-notice">📡 オフラインモードです。保存済みのデータを表示中（編集はできません）</div>
+    <div class="folder-list" id="folder-list"></div>
+    <div class="list-footer edit-only">
+      <button class="btn primary full" onclick="showNewFolderModal()">＋ セットリストを作成</button>
+    </div>
+  </div>
+
+  <div class="view" id="list-view">
+    <div class="breadcrumb">
+      <span class="bc-link" onclick="showView('folder')">🏠 ホーム</span>
+      <span>›</span>
+      <span id="breadcrumb-folder"></span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderSongList()">
+    </div>
+    <div class="song-list" id="song-list"></div>
+    <div class="list-footer">
+      <button class="btn edit-only" id="reorder-btn" onclick="toggleReorderMode()" style="display:none">⇅ 並び替え</button>
+      <button class="btn primary full edit-only" id="add-song-btn" onclick="newSong()">＋ 新しい曲を追加</button>
+    </div>
+  </div>
+
+  <div class="view" id="edit-view">
+    <div class="edit-header">
+      <input type="text" id="edit-title" placeholder="曲名">
+      <input type="text" id="edit-artist" placeholder="アーティスト">
+      <input type="text" id="edit-key" class="key-in" placeholder="Capo (3)">
+      <button class="btn primary" id="save-btn" onclick="saveSong()" style="width:auto;padding:8px 14px">💾 保存</button>
+      <button class="btn" onclick="cancelEdit()">戻る</button>
+      <button class="btn danger sm" id="del-btn" onclick="deleteSong()" style="display:none">🗑</button>
+    </div>
+    <div class="edit-help">コードは [Am] のように [ ] で囲む。セクションは「Aメロ:」のように末尾に : をつける。</div>
+    <div class="edit-area">
+      <textarea id="edit-body" placeholder="例：&#10;Aメロ:&#10;[G]春の [Em]光が [Am]降り注ぐ&#10;[C]君の [G]笑顔 [D]が眩しい"></textarea>
+    </div>
+    <div class="folder-assign">
+      <div class="folder-assign-title">📂 セットリストに追加（複数選択可）</div>
+      <div class="folder-chips" id="folder-chips"></div>
+    </div>
+    <div class="edit-foot">
+      <button class="btn" onclick="previewSong()">▶ 演奏画面でプレビュー</button>
+    </div>
+  </div>
+
+  <div class="view" id="play-view">
+    <div class="play-header">
+      <div style="flex:1">
+        <div class="play-title" id="play-title"></div>
+        <div class="play-artist" id="play-artist"></div>
+      </div>
+      <span class="song-key" id="play-key"></span>
+      <button class="btn sm edit-only" onclick="editCurrent()">✏️</button>
+      <button class="btn sm" onclick="showView('list');renderSongList()">☰</button>
+    </div>
+    <div class="controls">
+      <div class="ctrl-row">
+        <span class="ctrl-label">文字</span>
+        <input type="range" id="font-slider" min="12" max="30" value="17" step="1" oninput="updateFont(this.value)">
+        <span class="ctrl-val" id="font-val">17px</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">速度</span>
+        <input type="range" id="speed-slider" min="1" max="10" value="3" step="1" oninput="updateSpeed(this.value)">
+        <span class="ctrl-val" id="speed-val">3</span>
+      </div>
+      <button class="btn" id="scroll-btn" onclick="toggleScroll()">▶ スクロール</button>
+    </div>
+    <div id="play-content" onclick="toggleScroll()">
+      <div id="play-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="folder-modal" style="display:none" onclick="if(event.target===this)closeFolderModal()">
+  <div class="modal">
+    <h2 id="folder-modal-title">セットリストを作成</h2>
+    <input type="text" id="folder-modal-input" placeholder="セットリスト名" />
+    <div class="modal-btns">
+      <button class="btn" onclick="closeFolderModal()">キャンセル</button>
+      <button class="btn primary" style="width:auto;padding:8px 16px" onclick="saveFolderModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================================
+// 接続設定
+// ========================================
+const API   = 'https://script.google.com/macros/s/AKfycbyqC3tVqCg1Ho1tIkhpR_s-tXtzcPdP1u7jkLBnKyNIJmZdcA6uipWNeUBWQ41-tti6/exec';
+const TOKEN = 'e594b99e8cac4ae5aaf5b5ac05f21432';
+
+const CACHE_KEY      = 'chord_cache_v1';
+const CACHE_DATE_KEY = 'chord_cache_date_v1';
+
+let songs = [], folders = [], folderSongs = [];
+let currentFolderId = null;
+let editingId = null, editingFolderIds = new Set();
+let currentPlayId = null;
+let scrollTimer = null, scrolling = false;
+let fontSize = 17, scrollSpeed = 3;
+let folderModalMode = 'new', folderModalTargetId = null;
+let isOffline = false;
+let reorderMode = false;
+let reorderSaveTimer = null;
+let wakeLock = null;
+
+// ========================================
+// API通信
+// Content-Type を text/plain にすることでCORSプリフライトを回避する
+// ========================================
+async function api(action, payload) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, token: TOKEN }, payload || {}))
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
+// ========================================
+// 初期ロード
+// ① まずキャッシュを即描画 → ② 裏で最新を取得して差し替え
+// ========================================
+function loadAll() {
+  const drew = drawFromCache();
+  if (!drew) setBadge('読込中...', '');
+
+  if (!navigator.onLine) { markOffline(); return; }
+
+  api('getAll').then(data => {
+    songs       = data.songs || [];
+    folders     = data.folders || [];
+    folderSongs = data.folderSongs || [];
+    isOffline = false;
+    saveCache();
+    setBadge('オンライン ✓', 'ok');
+    enableEditing(true);
+    renderFolderList();
+  }).catch(err => {
+    console.error(err);
+    if (!drew) drawFromCache();
+    markOffline();
+  });
+}
+
+function drawFromCache() {
+  const raw = localStorage.getItem(CACHE_KEY);
+  if (!raw) return false;
+  try {
+    const d = JSON.parse(raw);
+    songs       = d.songs || [];
+    folders     = d.folders || [];
+    folderSongs = d.folderSongs || [];
+    renderFolderList();
+    return true;
+  } catch (e) { return false; }
+}
+
+function markOffline() {
+  isOffline = true;
+  const date = localStorage.getItem(CACHE_DATE_KEY);
+  setBadge(date ? 'オフライン（' + date + '時点）' : 'データなし', 'err');
+  enableEditing(false);
+  renderFolderList();
+}
+
+function saveCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ songs, folders, folderSongs }));
+    localStorage.setItem(CACHE_DATE_KEY, new Date().toLocaleString('ja-JP'));
+  } catch (e) {}
+}
+
+// オフライン時は編集系UIをまとめて隠す（CSSクラス1個で制御）
+function enableEditing(enabled) {
+  document.getElementById('app').classList.toggle('offline', !enabled);
+  const rb = document.getElementById('reorder-btn');
+  if (rb) rb.style.display = (enabled && currentFolderId !== null) ? '' : 'none';
+  const on = document.getElementById('offline-notice');
+  if (on) on.style.display = enabled ? 'none' : 'block';
+}
+
+function setBadge(text, cls) {
+  const b = document.getElementById('sync-badge');
+  b.textContent = text;
+  b.className = 'sync-badge' + (cls ? ' ' + cls : '');
+}
+
+function showView(v) {
+  stopScroll();
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('on'));
+  document.getElementById(v + '-view').classList.add('on');
+  window.scrollTo(0, 0);
+}
+
+// ========================================
+// 一覧描画
+// ========================================
+function renderFolderList() {
+  let html = `
+    <div class="folder-item" data-fid="">
+      <div class="folder-icon">🎵</div>
+      <div class="folder-info">
+        <div class="folder-name">全曲</div>
+        <div class="folder-count">${songs.length}曲</div>
+      </div>
+    </div>`;
+  folders.forEach(f => {
+    const count = folderSongs.filter(fs => fs.folder_id === f.id).length;
+    html += `
+      <div class="folder-item" data-fid="${esc(f.id)}">
+        <div class="folder-icon">📂</div>
+        <div class="folder-info">
+          <div class="folder-name">${esc(f.name)}</div>
+          <div class="folder-count">${count}曲</div>
+        </div>
+        <div class="folder-actions edit-only">
+          <button class="btn sm" data-act="rename">✏️</button>
+          <button class="btn sm danger" data-act="del">🗑</button>
+        </div>
+      </div>`;
+  });
+  document.getElementById('folder-list').innerHTML = html;
+}
+
+// イベント委譲：innerHTMLにonclickを埋めないので、名前に ' が入っても壊れない
+document.getElementById('folder-list').addEventListener('click', e => {
+  const item = e.target.closest('.folder-item');
+  if (!item) return;
+  const fid = item.dataset.fid || null;
+  const btn = e.target.closest('button[data-act]');
+  if (btn) {
+    e.stopPropagation();
+    const f = folders.find(x => x.id === fid);
+    if (!f) return;
+    if (btn.dataset.act === 'rename') showRenameFolderModal(f.id, f.name);
+    else confirmDeleteFolder(f.id, f.name);
+    return;
+  }
+  openFolder(fid);
+});
+
+function openFolder(folderId) {
+  currentFolderId = folderId;
+  reorderMode = false;
+  const name = folderId ? ((folders.find(f => f.id === folderId) || {}).name || '') : '全曲';
+  document.getElementById('breadcrumb-folder').textContent = name;
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-input').style.display = '';
+  const rb = document.getElementById('reorder-btn');
+  rb.textContent = '⇅ 並び替え';
+  rb.classList.remove('primary');
+  rb.style.display = (folderId !== null && !isOffline) ? '' : 'none';
+  document.getElementById('add-song-btn').style.display = '';
+  showView('list');
+  renderSongList();
+}
+
+function getSongsInCurrentFolder() {
+  if (currentFolderId === null) return songs;
+  const links = folderSongs
+    .filter(fs => fs.folder_id === currentFolderId)
+    .sort((a, b) => a.order - b.order);
+  const map = {};
+  songs.forEach(s => map[s.id] = s);
+  return links.map(l => map[l.song_id]).filter(Boolean);
+}
+
+function renderSongList() {
+  const list = getSongsInCurrentFolder();
+  const el = document.getElementById('song-list');
+
+  if (reorderMode) {
+    if (!list.length) { el.innerHTML = emptyHtml(); return; }
+    el.innerHTML = list.map(s => `
+      <div class="song-item reorder" data-song-id="${esc(s.id)}">
+        <div style="font-size:22px">🎵</div>
+        <div class="song-info">
+          <div class="song-title">${esc(s.title)}</div>
+          ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
+        </div>
+        <div class="drag-handle">⠿</div>
+      </div>`).join('');
+    return;
+  }
+
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const filtered = list.filter(s =>
+    (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q));
+  if (!filtered.length) { el.innerHTML = emptyHtml(); return; }
+
+  el.innerHTML = filtered.map(s => `
+    <div class="song-item" data-song-id="${esc(s.id)}">
+      <div style="font-size:22px">🎵</div>
+      <div class="song-info">
+        <div class="song-title">${esc(s.title)}</div>
+        ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
+      </div>
+      ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
+      <button class="btn sm edit-only" data-act="edit">✏️</button>
+    </div>`).join('');
+}
+
+function emptyHtml() {
+  return '<div class="empty"><div class="empty-icon">♪</div><div>曲がありません</div></div>';
+}
+
+document.getElementById('song-list').addEventListener('click', e => {
+  const item = e.target.closest('.song-item');
+  if (!item || reorderMode) return;
+  const id = item.dataset.songId;
+  if (e.target.closest('button[data-act="edit"]')) { e.stopPropagation(); editSong(id); return; }
+  playSong(id);
+});
+
+document.getElementById('song-list').addEventListener('pointerdown', e => {
+  if (e.target.closest('.drag-handle')) onDragHandleDown(e);
+});
+
+// ========================================
+// 並び替え
+// ========================================
+function toggleReorderMode() {
+  reorderMode = !reorderMode;
+  const btn = document.getElementById('reorder-btn');
+  btn.textContent = reorderMode ? '✓ 完了' : '⇅ 並び替え';
+  btn.classList.toggle('primary', reorderMode);
+  document.getElementById('search-input').style.display = reorderMode ? 'none' : '';
+  document.getElementById('add-song-btn').style.display = reorderMode ? 'none' : '';
+  renderSongList();
+}
+
+let dragItem = null, dragItemHeight = 0;
+let dragStartIndex = 0, dragCurrentIndex = 0, dragStartY = 0;
+let dragItems = [];
+
+function onDragHandleDown(e) {
+  if (!reorderMode) return;
+  const item = e.target.closest('.song-item');
+  if (!item) return;
+  e.preventDefault();
+
+  const list = document.getElementById('song-list');
+  dragItems = Array.from(list.children);
+  dragItem = item;
+  dragStartIndex = dragItems.indexOf(item);
+  dragCurrentIndex = dragStartIndex;
+  dragStartY = e.clientY;
+  dragItemHeight = item.getBoundingClientRect().height;
+
+  item.classList.add('dragging');
+  item.style.position = 'relative';
+  item.style.zIndex = 5;
+
+  const handle = e.target.closest('.drag-handle');
+  try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+  handle.addEventListener('pointermove', onDragHandleMove);
+  handle.addEventListener('pointerup', onDragHandleUp);
+  handle.addEventListener('pointercancel', onDragHandleUp);
+}
+
+function onDragHandleMove(e) {
+  if (!dragItem) return;
+  const deltaY = e.clientY - dragStartY;
+  dragItem.style.transform = `translateY(${deltaY}px)`;
+
+  const offset = Math.round(deltaY / dragItemHeight);
+  const newIndex = Math.min(dragItems.length - 1, Math.max(0, dragStartIndex + offset));
+  if (newIndex === dragCurrentIndex) return;
+
+  dragCurrentIndex = newIndex;
+  dragItems.forEach((el, i) => {
+    if (el === dragItem) return;
+    let shift = 0;
+    if (dragCurrentIndex < dragStartIndex && i >= dragCurrentIndex && i < dragStartIndex) shift = 1;
+    else if (dragCurrentIndex > dragStartIndex && i > dragStartIndex && i <= dragCurrentIndex) shift = -1;
+    el.style.transform = shift ? `translateY(${shift * dragItemHeight}px)` : '';
+    el.style.transition = 'transform 0.15s ease';
+  });
+}
+
+function onDragHandleUp(e) {
+  if (!dragItem) return;
+  const handle = e.target.closest('.drag-handle') || e.target;
+  handle.removeEventListener('pointermove', onDragHandleMove);
+  handle.removeEventListener('pointerup', onDragHandleUp);
+  handle.removeEventListener('pointercancel', onDragHandleUp);
+
+  const list = document.getElementById('song-list');
+  dragItems.forEach(el => { el.style.transform = ''; el.style.transition = ''; el.style.zIndex = ''; });
+  dragItem.classList.remove('dragging');
+
+  const reordered = dragItems.slice();
+  reordered.splice(dragStartIndex, 1);
+  reordered.splice(dragCurrentIndex, 0, dragItem);
+  reordered.forEach(el => list.appendChild(el));
+
+  dragItem = null; dragItems = [];
+
+  const ids = Array.from(list.querySelectorAll('.song-item')).map(el => el.dataset.songId);
+  ids.forEach((id, i) => {
+    const link = folderSongs.find(fs => fs.folder_id === currentFolderId && fs.song_id === id);
+    if (link) link.order = i;
+  });
+  saveCache();
+  scheduleSaveOrder(ids);
+}
+
+function scheduleSaveOrder(songIds) {
+  const folderId = currentFolderId;
+  clearTimeout(reorderSaveTimer);
+  reorderSaveTimer = setTimeout(() => {
+    api('reorderFolderSongs', { folder_id: folderId, song_ids: songIds })
+      .catch(err => { console.error(err); setBadge('並び順の保存に失敗', 'err'); });
+  }, 400);
+}
+
+// ========================================
+// 編集
+// ========================================
+function renderFolderChips(songId, preset) {
+  const el = document.getElementById('folder-chips');
+  editingFolderIds = preset
+    || new Set(folderSongs.filter(fs => fs.song_id === songId).map(fs => fs.folder_id));
+  if (!folders.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text2)">セットリストがまだありません</span>';
+    return;
+  }
+  el.innerHTML = folders.map(f =>
+    `<span class="folder-chip${editingFolderIds.has(f.id) ? ' active' : ''}" data-fid="${esc(f.id)}">${esc(f.name)}</span>`
+  ).join('');
+}
+
+document.getElementById('folder-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.folder-chip');
+  if (!chip) return;
+  const fid = chip.dataset.fid;
+  if (editingFolderIds.has(fid)) { editingFolderIds.delete(fid); chip.classList.remove('active'); }
+  else { editingFolderIds.add(fid); chip.classList.add('active'); }
+});
+
+function newSong() {
+  editingId = null;
+  ['edit-title','edit-artist','edit-key','edit-body'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('del-btn').style.display = 'none';
+  // 開いているセットリストを最初から選択状態にする
+  renderFolderChips(null, new Set(currentFolderId ? [currentFolderId] : []));
+  showView('edit');
+}
+
+function editSong(id) {
+  const s = songs.find(x => x.id === id);
+  if (!s) return;
+  editingId = id;
+  document.getElementById('edit-title').value  = s.title  || '';
+  document.getElementById('edit-artist').value = s.artist || '';
+  document.getElementById('edit-key').value    = s.key    || '';
+  document.getElementById('edit-body').value   = s.body   || '';
+  document.getElementById('del-btn').style.display = '';
+  renderFolderChips(id);
+  showView('edit');
+}
+
+function cancelEdit() { showView('list'); renderSongList(); }
+
+function saveSong() {
+  const song = {
+    id:     editingId || String(Date.now()),
+    title:  document.getElementById('edit-title').value.trim() || '無題',
+    artist: document.getElementById('edit-artist').value.trim(),
+    key:    document.getElementById('edit-key').value.trim(),
+    body:   document.getElementById('edit-body').value
+  };
+  const prev     = folderSongs.filter(fs => fs.song_id === song.id).map(fs => fs.folder_id);
+  const toAdd    = [...editingFolderIds].filter(id => !prev.includes(id));
+  const toRemove = prev.filter(id => !editingFolderIds.has(id));
+
+  setBadge('保存中...', '');
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+
+  api('saveSongWithFolders', { song, toAdd, toRemove })
+    .then(res => {
+      btn.disabled = false;
+      song.id = res.id || song.id;
+      const idx = songs.findIndex(x => x.id === song.id);
+      if (idx >= 0) songs[idx] = song; else songs.push(song);
+      folderSongs = folderSongs.filter(fs => !(fs.song_id === song.id && toRemove.includes(fs.folder_id)));
+      toAdd.forEach(fid => {
+        const max = Math.max(-1, ...folderSongs.filter(fs => fs.folder_id === fid).map(fs => fs.order));
+        folderSongs.push({ folder_id: fid, song_id: song.id, order: max + 1 });
+      });
+      saveCache();
+      setBadge('保存しました ✓', 'ok');
+      showView('list'); renderSongList(); renderFolderList();
+    })
+    .catch(err => {
+      btn.disabled = false;
+      setBadge('保存エラー', 'err');
+      alert('保存に失敗しました: ' + err.message);
+    });
+}
+
+function deleteSong() {
+  if (!editingId || !confirm('この曲を削除しますか？')) return;
+  const id = editingId;
+  setBadge('削除中...', '');
+  api('deleteSong', { id })
+    .then(() => {
+      songs = songs.filter(x => x.id !== id);
+      folderSongs = folderSongs.filter(fs => fs.song_id !== id);
+      editingId = null;
+      saveCache();
+      setBadge('削除しました', 'ok');
+      showView('list'); renderSongList(); renderFolderList();
+    })
+    .catch(() => setBadge('削除エラー', 'err'));
+}
+
+// ========================================
+// セットリスト
+// ========================================
+function showNewFolderModal() {
+  folderModalMode = 'new'; folderModalTargetId = null;
+  document.getElementById('folder-modal-title').textContent = 'セットリストを作成';
+  document.getElementById('folder-modal-input').value = '';
+  document.getElementById('folder-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('folder-modal-input').focus(), 50);
+}
+
+function showRenameFolderModal(id, name) {
+  folderModalMode = 'rename'; folderModalTargetId = id;
+  document.getElementById('folder-modal-title').textContent = 'セットリスト名を変更';
+  document.getElementById('folder-modal-input').value = name;
+  document.getElementById('folder-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('folder-modal-input').focus(), 50);
+}
+
+function closeFolderModal() { document.getElementById('folder-modal').style.display = 'none'; }
+
+function saveFolderModal() {
+  const name = document.getElementById('folder-modal-input').value.trim();
+  if (!name) return;
+  closeFolderModal();
+  setBadge('保存中...', '');
+  const folder = { name };
+  if (folderModalMode === 'rename') folder.id = folderModalTargetId;
+
+  api('saveFolder', { folder })
+    .then(res => {
+      if (folderModalMode === 'new') folders.push({ id: res.id, name });
+      else { const f = folders.find(x => x.id === folderModalTargetId); if (f) f.name = name; }
+      saveCache();
+      setBadge('保存しました ✓', 'ok');
+      renderFolderList();
+    })
+    .catch(() => setBadge('保存エラー', 'err'));
+}
+
+function confirmDeleteFolder(id, name) {
+  if (!confirm('「' + name + '」を削除しますか？\n（曲自体は削除されません）')) return;
+  setBadge('削除中...', '');
+  api('deleteFolder', { id })
+    .then(() => {
+      folders = folders.filter(f => f.id !== id);
+      folderSongs = folderSongs.filter(fs => fs.folder_id !== id);
+      saveCache();
+      setBadge('削除しました', 'ok');
+      renderFolderList();
+    })
+    .catch(() => setBadge('削除エラー', 'err'));
+}
+
+// ========================================
+// 演奏画面
+// ========================================
+function previewSong() {
+  renderPlay({
+    id: editingId,
+    title:  document.getElementById('edit-title').value || '無題',
+    artist: document.getElementById('edit-artist').value,
+    key:    document.getElementById('edit-key').value,
+    body:   document.getElementById('edit-body').value
+  });
+}
+
+function playSong(id) {
+  const s = songs.find(x => x.id === id);
+  if (s) { currentPlayId = id; renderPlay(s); }
+}
+function editCurrent() { if (currentPlayId) editSong(currentPlayId); }
+
+function renderPlay(s) {
+  document.getElementById('play-title').textContent  = s.title  || '';
+  document.getElementById('play-artist').textContent = s.artist || '';
+  const keyEl = document.getElementById('play-key');
+  keyEl.textContent = s.key ? 'Capo: ' + s.key : '';
+  keyEl.style.display = s.key ? '' : 'none';
+  const pb = document.getElementById('play-body');
+  pb.innerHTML = parseChords(s.body || '');
+  pb.style.fontSize = fontSize + 'px';
+  window.scrollTo(0, 0);
+  stopScroll();
+  showView('play');
+}
+
+function parseChords(text) {
+  let html = '';
+  for (const line of text.split('\n')) {
+    if (!line.trim()) { html += '<div style="height:0.6em"></div>'; continue; }
+    if (/^[^\[]+:$/.test(line.trim())) {
+      html += `<div class="section-label">${esc(line.trim().slice(0, -1))}</div>`; continue;
+    }
+    if (line.includes('[')) {
+      const segs = line.split(/(\[[^\]]+\])/g).map(p =>
+        p.startsWith('[') && p.endsWith(']')
+          ? { type: 'chord', val: p.slice(1, -1) }
+          : { type: 'lyric', val: p });
+      let lineHtml = '<div class="chord-lyric-line">';
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        if (seg.type === 'chord') {
+          const next = segs[i + 1];
+          const lyric = (next && next.type === 'lyric') ? next.val : '';
+          const dl = lyric ? esc(lyric)
+            : `<span style="display:inline-block;min-width:${seg.val.length + 2}ch"> </span>`;
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${dl}</span></span>`;
+          if (lyric) i++;
+        } else if (seg.val) {
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`;
+        }
+      }
+      html += lineHtml + '</div>';
+    } else {
+      html += `<div class="lyric-line">${esc(line)}</div>`;
+    }
+  }
+  return html;
+}
+
+function updateFont(v) {
+  fontSize = parseInt(v);
+  document.getElementById('font-val').textContent = fontSize + 'px';
+  const pb = document.getElementById('play-body');
+  if (pb) pb.style.fontSize = fontSize + 'px';
+}
+
+function updateSpeed(v) {
+  scrollSpeed = parseInt(v);
+  document.getElementById('speed-val').textContent = scrollSpeed;
+}
+
+function toggleScroll() { scrolling ? stopScroll() : startScroll(); }
+
+// requestAnimationFrameで滑らかにスクロール（速度変更は即座に反映される）
+function startScroll() {
+  if (scrolling) return;
+  scrolling = true;
+  document.getElementById('scroll-btn').textContent = '⏸ 一時停止';
+  keepAwake(true);
+
+  let acc = 0, last = performance.now();
+  const step = now => {
+    if (!scrolling) return;
+    acc += (now - last) / 1000 * (scrollSpeed * 8);
+    last = now;
+    const px = Math.floor(acc);
+    if (px) { window.scrollBy(0, px); acc -= px; }
+    if ((window.innerHeight + window.scrollY) >= document.body.scrollHeight - 2) return stopScroll();
+    scrollTimer = requestAnimationFrame(step);
+  };
+  scrollTimer = requestAnimationFrame(step);
+}
+
+function stopScroll() {
+  if (!scrolling && scrollTimer === null) return;
+  scrolling = false;
+  if (scrollTimer !== null) cancelAnimationFrame(scrollTimer);
+  scrollTimer = null;
+  const b = document.getElementById('scroll-btn');
+  if (b) b.textContent = '▶ スクロール';
+  keepAwake(false);
+}
+
+// スクロール中は画面を消灯させない
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+    else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && scrolling) keepAwake(true);
+});
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+document.getElementById('folder-modal-input')
+  .addEventListener('keydown', e => { if (e.key === 'Enter') saveFolderModal(); });
+
+window.addEventListener('online', loadAll);
+window.addEventListener('offline', markOffline);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.error('SW登録失敗', e));
+}
+
+loadAll();
+</script>
+</body>
+</html>
