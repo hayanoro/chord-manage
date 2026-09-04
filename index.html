@@ -771,7 +771,7 @@ function startScroll() {
   let acc = 0, last = performance.now();
   const step = now => {
     if (!scrolling) return;
-    acc += (now - last) / 1000 * (scrollSpeed * 1);
+    acc += (now - last) / 1000 * (scrollSpeed * 3);
     last = now;
     const px = Math.floor(acc);
     if (px) { window.scrollBy(0, px); acc -= px; }
