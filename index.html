@@ -159,7 +159,8 @@ input[type=range]{width:80px;accent-color:var(--acc)}
     <div class="edit-header">
       <input type="text" id="edit-title" placeholder="曲名">
       <input type="text" id="edit-artist" placeholder="アーティスト">
-      <input type="text" id="edit-key" class="key-in" placeholder="Capo (3)">
+      <input type="text" id="edit-key" class="key-in" placeholder="Age">
+      <input type="text" id="edit-capo" class="key-in" placeholder="Capo">
       <button class="btn primary" id="save-btn" onclick="saveSong()" style="width:auto;padding:8px 14px">💾 保存</button>
       <button class="btn" onclick="cancelEdit()">戻る</button>
       <button class="btn danger sm" id="del-btn" onclick="deleteSong()" style="display:none">🗑</button>
@@ -183,7 +184,7 @@ input[type=range]{width:80px;accent-color:var(--acc)}
         <div class="play-title" id="play-title"></div>
         <div class="play-artist" id="play-artist"></div>
       </div>
-      <span class="song-key" id="play-key"></span>
+      <span id="play-key" style="display:flex;gap:5px"></span>
       <button class="btn sm edit-only" onclick="editCurrent()">✏️</button>
       <button class="btn sm" onclick="showView('list');renderSongList()">☰</button>
     </div>
@@ -436,7 +437,7 @@ function renderSongList() {
         <div class="song-title">${esc(s.title)}</div>
         ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
       </div>
-      ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
+      ${badges(s)}
       <button class="btn sm edit-only" data-act="edit">✏️</button>
     </div>`).join('');
 }
@@ -523,7 +524,7 @@ function renderBulkList() {
         <div class="song-title">${esc(s.title)}</div>
         ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
       </div>
-      ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
+      ${badges(s)}
     </div>`;
   }).join('');
 }
@@ -701,7 +702,7 @@ document.getElementById('folder-chips').addEventListener('click', e => {
 
 function newSong() {
   editingId = null;
-  ['edit-title','edit-artist','edit-key','edit-body'].forEach(id => document.getElementById(id).value = '');
+  ['edit-title','edit-artist','edit-key','edit-capo','edit-body'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('del-btn').style.display = 'none';
   // 開いているセットリストを最初から選択状態にする
   renderFolderChips(null, new Set(currentFolderId ? [currentFolderId] : []));
@@ -715,6 +716,7 @@ function editSong(id) {
   document.getElementById('edit-title').value  = s.title  || '';
   document.getElementById('edit-artist').value = s.artist || '';
   document.getElementById('edit-key').value    = s.key    || '';
+  document.getElementById('edit-capo').value   = s.capo   || '';
   document.getElementById('edit-body').value   = s.body   || '';
   document.getElementById('del-btn').style.display = '';
   renderFolderChips(id);
@@ -729,6 +731,7 @@ function saveSong() {
     title:  document.getElementById('edit-title').value.trim() || '無題',
     artist: document.getElementById('edit-artist').value.trim(),
     key:    document.getElementById('edit-key').value.trim(),
+    capo:   document.getElementById('edit-capo').value.trim(),
     body:   document.getElementById('edit-body').value
   };
   const prev     = folderSongs.filter(fs => fs.song_id === song.id).map(fs => fs.folder_id);
@@ -840,6 +843,7 @@ function previewSong() {
     title:  document.getElementById('edit-title').value || '無題',
     artist: document.getElementById('edit-artist').value,
     key:    document.getElementById('edit-key').value,
+    capo:   document.getElementById('edit-capo').value,
     body:   document.getElementById('edit-body').value
   });
 }
@@ -854,8 +858,7 @@ function renderPlay(s) {
   document.getElementById('play-title').textContent  = s.title  || '';
   document.getElementById('play-artist').textContent = s.artist || '';
   const keyEl = document.getElementById('play-key');
-  keyEl.textContent = s.key ? 'Capo: ' + s.key : '';
-  keyEl.style.display = s.key ? '' : 'none';
+  keyEl.innerHTML = badges(s);
   const pb = document.getElementById('play-body');
   pb.innerHTML = parseChords(s.body || '');
   pb.style.fontSize = fontSize + 'px';
@@ -953,6 +956,14 @@ async function keepAwake(on) {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && scrolling) keepAwake(true);
 });
+
+// AgeとCapoのバッジを作る。空の項目は表示しない
+function badges(s) {
+  let h = '';
+  if (s.key)  h += `<span class="song-key">Age: ${esc(s.key)}</span>`;
+  if (s.capo) h += `<span class="song-key">Capo: ${esc(s.capo)}</span>`;
+  return h;
+}
 
 function esc(s) {
   return String(s == null ? '' : s)
