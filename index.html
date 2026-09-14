@@ -92,6 +92,13 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg2);color:var(--text);font-family:inherit}
 .modal-btns{display:flex;gap:8px;justify-content:flex-end}
 #offline-notice{display:none;padding:10px 14px;background:#FDF3E0;color:#7A5C00;font-size:12px;border-bottom:1px solid var(--border)}
+.bulk-bar{padding:8px 14px;font-size:12px;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.bulk-bar .count{flex:1}
+.bulk-item{display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.bulk-item:hover{background:var(--bg2)}
+.bulk-item.on{background:var(--bg2);border-color:var(--acc)}
+.bulk-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.bulk-item.on .bulk-check{background:var(--acc);border-color:var(--acc)}
 </style>
 </head>
 <body>
@@ -122,7 +129,29 @@ input[type=range]{width:80px;accent-color:var(--acc)}
     <div class="song-list" id="song-list"></div>
     <div class="list-footer">
       <button class="btn edit-only" id="reorder-btn" onclick="toggleReorderMode()" style="display:none">⇅ 並び替え</button>
+      <button class="btn edit-only" id="bulk-btn" onclick="openBulk()" style="display:none">☑ 曲を選ぶ</button>
       <button class="btn primary full edit-only" id="add-song-btn" onclick="newSong()">＋ 新しい曲を追加</button>
+    </div>
+  </div>
+
+  <div class="view" id="bulk-view">
+    <div class="breadcrumb">
+      <span class="bc-link" onclick="cancelBulk()">← 戻る</span>
+      <span>›</span>
+      <span id="bulk-folder-name"></span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="bulk-search" placeholder="曲名・アーティストで検索..." oninput="renderBulkList()">
+    </div>
+    <div class="bulk-bar">
+      <span class="count" id="bulk-count">0曲を選択中</span>
+      <button class="btn sm" onclick="bulkSelectShown(true)">表示中を全選択</button>
+      <button class="btn sm" onclick="bulkSelectShown(false)">解除</button>
+    </div>
+    <div class="song-list" id="bulk-list"></div>
+    <div class="list-footer">
+      <button class="btn" onclick="cancelBulk()">キャンセル</button>
+      <button class="btn primary full" id="bulk-save-btn" onclick="saveBulk()">💾 このセットリストに反映</button>
     </div>
   </div>
 
@@ -360,6 +389,8 @@ function openFolder(folderId) {
   rb.textContent = '⇅ 並び替え';
   rb.classList.remove('primary');
   rb.style.display = (folderId !== null && !isOffline) ? '' : 'none';
+  const bb = document.getElementById('bulk-btn');
+  bb.style.display = (folderId !== null && !isOffline) ? '' : 'none';
   document.getElementById('add-song-btn').style.display = '';
   showView('list');
   renderSongList();
@@ -436,7 +467,127 @@ function toggleReorderMode() {
   btn.classList.toggle('primary', reorderMode);
   document.getElementById('search-input').style.display = reorderMode ? 'none' : '';
   document.getElementById('add-song-btn').style.display = reorderMode ? 'none' : '';
+  document.getElementById('bulk-btn').style.display = reorderMode ? 'none' : '';
   renderSongList();
+}
+
+// ========================================
+// まとめて選択：セットリストの中身を一画面で編集する
+// チェックを入れた曲が「そのセットリストに入っている曲」になる
+// ========================================
+let bulkFolderId = null;
+let bulkSelected = new Set();
+
+function openBulk() {
+  if (currentFolderId === null) return;
+  bulkFolderId = currentFolderId;
+  bulkSelected = new Set(
+    folderSongs.filter(fs => fs.folder_id === bulkFolderId).map(fs => fs.song_id)
+  );
+  const f = folders.find(x => x.id === bulkFolderId);
+  document.getElementById('bulk-folder-name').textContent = f ? f.name : '';
+  document.getElementById('bulk-search').value = '';
+  document.getElementById('bulk-save-btn').disabled = false;
+  renderBulkList();
+  showView('bulk');
+}
+
+function cancelBulk() {
+  bulkFolderId = null;
+  bulkSelected = new Set();
+  showView('list');
+  renderSongList();
+}
+
+function bulkShownSongs() {
+  const q = (document.getElementById('bulk-search').value || '').toLowerCase();
+  return songs.filter(s =>
+    (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q));
+}
+
+function renderBulkList() {
+  const el = document.getElementById('bulk-list');
+  const list = bulkShownSongs();
+  document.getElementById('bulk-count').textContent = bulkSelected.size + '曲を選択中';
+
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>曲がありません</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(s => {
+    const on = bulkSelected.has(s.id);
+    return `
+    <div class="bulk-item${on ? ' on' : ''}" data-song-id="${esc(s.id)}">
+      <div class="bulk-check">${on ? '✓' : ''}</div>
+      <div class="song-info">
+        <div class="song-title">${esc(s.title)}</div>
+        ${s.artist ? `<div class="song-artist">${esc(s.artist)}</div>` : ''}
+      </div>
+      ${s.key ? `<span class="song-key">Capo: ${esc(s.key)}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('bulk-list').addEventListener('click', e => {
+  const item = e.target.closest('.bulk-item');
+  if (!item) return;
+  const id = item.dataset.songId;
+  if (bulkSelected.has(id)) {
+    bulkSelected.delete(id);
+    item.classList.remove('on');
+    item.querySelector('.bulk-check').textContent = '';
+  } else {
+    bulkSelected.add(id);
+    item.classList.add('on');
+    item.querySelector('.bulk-check').textContent = '✓';
+  }
+  document.getElementById('bulk-count').textContent = bulkSelected.size + '曲を選択中';
+});
+
+// 検索で絞り込んだ「今表示中の曲」だけをまとめて選択／解除する
+function bulkSelectShown(on) {
+  bulkShownSongs().forEach(s => {
+    if (on) bulkSelected.add(s.id); else bulkSelected.delete(s.id);
+  });
+  renderBulkList();
+}
+
+function saveBulk() {
+  const fid = bulkFolderId;
+  const before = new Set(
+    folderSongs.filter(fs => fs.folder_id === fid).map(fs => fs.song_id)
+  );
+  const ops = [];
+  bulkSelected.forEach(id => { if (!before.has(id)) ops.push({ folder_id: fid, song_id: id, op: 'add' }); });
+  before.forEach(id => { if (!bulkSelected.has(id)) ops.push({ folder_id: fid, song_id: id, op: 'remove' }); });
+
+  if (!ops.length) { cancelBulk(); return; }
+
+  setBadge('保存中...', '');
+  const btn = document.getElementById('bulk-save-btn');
+  btn.disabled = true;
+
+  api('updateFolderSongLinks', { ops })
+    .then(() => {
+      // 手元のデータも同じ形に更新する
+      folderSongs = folderSongs.filter(fs => !(fs.folder_id === fid && !bulkSelected.has(fs.song_id)));
+      let max = Math.max(-1, ...folderSongs.filter(fs => fs.folder_id === fid).map(fs => fs.order));
+      bulkSelected.forEach(id => {
+        if (!before.has(id)) folderSongs.push({ folder_id: fid, song_id: id, order: ++max });
+      });
+      saveCache();
+      btn.disabled = false;
+      setBadge('保存しました ✓', 'ok');
+      currentFolderId = fid;
+      showView('list');
+      renderSongList();
+      renderFolderList();
+    })
+    .catch(err => {
+      btn.disabled = false;
+      setBadge('保存エラー', 'err');
+      alert('保存に失敗しました: ' + err.message);
+    });
 }
 
 let dragItem = null, dragItemHeight = 0;
