@@ -244,16 +244,36 @@ let wakeLock = null;
 // API通信
 // Content-Type を text/plain にすることでCORSプリフライトを回避する
 // ========================================
-async function api(action, payload) {
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action, token: TOKEN }, payload || {}))
-  });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const data = await res.json();
-  if (data && data.error) throw new Error(data.error);
-  return data;
+// GASは処理を終えても、返事がスマホに届く途中で落ちることがある。
+// 返事が来なかったときは少し待って自動でやり直す（最大 retries 回）。
+// どの保存処理もIDで上書きする作りなので、やり直しても重複しない。
+async function api(action, payload, retries = 2) {
+  for (let i = 0; ; i++) {
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ action, token: TOKEN }, payload || {}))
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data && data.error) { const e = new Error(data.error); e.fromServer = true; throw e; }
+      return data;
+    } catch (err) {
+      // サーバーが「ダメ」と返したもの（権限エラーなど）はやり直しても無駄なので即終了
+      if (err.fromServer || i >= retries) throw err;
+      setBadge('再送中...（' + (i + 1) + '）', '');
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+}
+
+// サーバーから全データを取り直して、手元の状態をまるごと置き換える
+function applyServerData(data) {
+  songs       = data.songs || [];
+  folders     = data.folders || [];
+  folderSongs = data.folderSongs || [];
+  saveCache();
 }
 
 // ========================================
@@ -313,10 +333,7 @@ function saveCache() {
 // オフライン時は編集系UIをまとめて隠す（CSSクラス1個で制御）
 function enableEditing(enabled) {
   document.getElementById('app').classList.toggle('offline', !enabled);
-  const rb = document.getElementById('reorder-btn');
-  if (rb) rb.style.display = (enabled && currentFolderId !== null) ? '' : 'none';
-  const on = document.getElementById('offline-notice');
-  if (on) on.style.display = enabled ? 'none' : 'block';
+  document.getElementById('offline-notice').style.display = enabled ? 'none' : 'block';
 }
 
 function setBadge(text, cls) {
@@ -389,9 +406,9 @@ function openFolder(folderId) {
   const rb = document.getElementById('reorder-btn');
   rb.textContent = '⇅ 並び替え';
   rb.classList.remove('primary');
-  rb.style.display = (folderId !== null && !isOffline) ? '' : 'none';
+  rb.style.display = folderId !== null ? '' : 'none';
   const bb = document.getElementById('bulk-btn');
-  bb.style.display = (folderId !== null && !isOffline) ? '' : 'none';
+  bb.style.display = folderId !== null ? '' : 'none';
   document.getElementById('add-song-btn').style.display = '';
   showView('list');
   renderSongList();
@@ -742,9 +759,14 @@ function saveSong() {
   const btn = document.getElementById('save-btn');
   btn.disabled = true;
 
+  const done = () => {
+    btn.disabled = false;
+    setBadge('保存しました ✓', 'ok');
+    showView('list'); renderSongList(); renderFolderList();
+  };
+
   api('saveSongWithFolders', { song, toAdd, toRemove })
     .then(res => {
-      btn.disabled = false;
       song.id = res.id || song.id;
       const idx = songs.findIndex(x => x.id === song.id);
       if (idx >= 0) songs[idx] = song; else songs.push(song);
@@ -754,13 +776,25 @@ function saveSong() {
         folderSongs.push({ folder_id: fid, song_id: song.id, order: max + 1 });
       });
       saveCache();
-      setBadge('保存しました ✓', 'ok');
-      showView('list'); renderSongList(); renderFolderList();
+      done();
     })
-    .catch(err => {
+    .catch(async err => {
+      // 返事が届かなかっただけで、実は保存できていることが多い。サーバーに確認しに行く
+      if (!err.fromServer) {
+        try {
+          setBadge('保存できたか確認中...', '');
+          const data = await api('getAll');
+          const saved = (data.songs || []).find(x => x.id === song.id);
+          if (saved && saved.title === song.title && saved.body === song.body) {
+            applyServerData(data);
+            done();
+            return;
+          }
+        } catch (e) { /* 確認もできなかった場合は下の失敗表示へ */ }
+      }
       btn.disabled = false;
       setBadge('保存エラー', 'err');
-      alert('保存に失敗しました: ' + err.message);
+      alert('保存に失敗しました: ' + err.message + '\n\n入力内容はこの画面に残っています。電波の良い場所でもう一度「保存」を押してください。');
     });
 }
 
@@ -807,7 +841,8 @@ function saveFolderModal() {
   closeFolderModal();
   setBadge('保存中...', '');
   const folder = { name };
-  if (folderModalMode === 'rename') folder.id = folderModalTargetId;
+  // 新規でもIDをこちらで決めて送る。やり直しで同じセットリストが2つできるのを防ぐ
+  folder.id = folderModalMode === 'rename' ? folderModalTargetId : String(Date.now());
 
   api('saveFolder', { folder })
     .then(res => {
