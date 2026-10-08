@@ -1,5 +1,5 @@
 // キャッシュの名前。中身を更新したらここの数字を必ず上げること。
-const CACHE = 'chordnote-v1.1.2';
+const CACHE = 'chordnote-v1.2.0';
 
 // 最初にまとめて保存しておくファイル
 const ASSETS = [
