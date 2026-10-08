@@ -84,6 +84,14 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .cl-lyric{color:var(--text);line-height:1.4;white-space:pre}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text2);text-align:center}
 .empty-icon{font-size:40px;opacity:.3}
+.song-nav{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;margin:4px 0 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;text-align:left}
+.song-nav:hover{border-color:var(--acc)}
+.song-nav .arrow{font-size:16px;color:var(--acc);flex-shrink:0}
+.song-nav .label{font-size:11px;color:var(--text2);display:block}
+.song-nav .name{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song-nav .txt{flex:1;min-width:0}
+.song-nav.bottom{margin:24px 0 4px}
+.nav-pos{font-size:12px;color:var(--text2);text-align:center;margin:-6px 0 10px}
 .breadcrumb{padding:8px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
 .breadcrumb .bc-link{cursor:pointer;color:var(--acc)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100}
@@ -130,6 +138,7 @@ input[type=range]{width:80px;accent-color:var(--acc)}
     <div class="list-footer">
       <button class="btn edit-only" id="reorder-btn" onclick="toggleReorderMode()" style="display:none">⇅ 並び替え</button>
       <button class="btn edit-only" id="bulk-btn" onclick="openBulk()" style="display:none">☑ 曲を選ぶ</button>
+      <button class="btn" id="random-btn" onclick="playRandom()" style="display:none">🎲 ランダム</button>
       <button class="btn primary full edit-only" id="add-song-btn" onclick="newSong()">＋ 新しい曲を追加</button>
     </div>
   </div>
@@ -202,7 +211,9 @@ input[type=range]{width:80px;accent-color:var(--acc)}
       <button class="btn" id="scroll-btn" onclick="toggleScroll()">▶ スクロール</button>
     </div>
     <div id="play-content" onclick="toggleScroll()">
+      <div id="nav-top"></div>
       <div id="play-body"></div>
+      <div id="nav-bottom"></div>
     </div>
   </div>
 </div>
@@ -409,6 +420,7 @@ function openFolder(folderId) {
   rb.style.display = folderId !== null ? '' : 'none';
   const bb = document.getElementById('bulk-btn');
   bb.style.display = folderId !== null ? '' : 'none';
+  document.getElementById('random-btn').style.display = folderId === null ? '' : 'none';
   document.getElementById('add-song-btn').style.display = '';
   showView('list');
   renderSongList();
@@ -873,6 +885,7 @@ function confirmDeleteFolder(id, name) {
 // 演奏画面
 // ========================================
 function previewSong() {
+  currentPlayId = null;
   renderPlay({
     id: editingId,
     title:  document.getElementById('edit-title').value || '無題',
@@ -897,9 +910,65 @@ function renderPlay(s) {
   const pb = document.getElementById('play-body');
   pb.innerHTML = parseChords(s.body || '');
   pb.style.fontSize = fontSize + 'px';
+  renderSongNav(s);
   window.scrollTo(0, 0);
   stopScroll();
   showView('play');
+}
+
+// ========================================
+// 演奏画面の「前の曲・次の曲」と「ランダム」
+// セットリストの中では、その並び順どおりに前後へ移動する。
+// 全曲のときは前後の代わりにランダムで別の曲へ移動する。
+// ========================================
+function renderSongNav(s) {
+  const top = document.getElementById('nav-top');
+  const bottom = document.getElementById('nav-bottom');
+  top.innerHTML = bottom.innerHTML = '';
+  if (!currentPlayId || s.id !== currentPlayId) return; // 編集中のプレビューでは出さない
+
+  if (currentFolderId === null) {
+    if (songs.length > 1) {
+      bottom.innerHTML = navBtn('bottom', '🎲', 'ランダムで別の曲へ', '', 'random');
+    }
+    return;
+  }
+
+  const list = getSongsInCurrentFolder();
+  const i = list.findIndex(x => x.id === s.id);
+  if (i < 0) return;
+  const prev = list[i - 1], next = list[i + 1];
+  if (prev) top.innerHTML = navBtn('', '▲', '前の曲', prev.title, 'prev');
+  top.innerHTML += `<div class="nav-pos">${i + 1} / ${list.length}</div>`;
+  bottom.innerHTML = next
+    ? navBtn('bottom', '▼', '次の曲', next.title, 'next')
+    : '<div class="nav-pos" style="margin-top:24px">セットリストの最後の曲です</div>';
+}
+
+function navBtn(cls, arrow, label, name, act) {
+  return `<button class="song-nav ${cls}" data-nav="${act}">
+    <span class="arrow">${arrow}</span>
+    <span class="txt"><span class="label">${label}</span>${name ? `<span class="name">${esc(name)}</span>` : ''}</span>
+  </button>`;
+}
+
+// ボタンのタップでスクロール開始・停止が反応しないよう、ここで受け止める
+document.getElementById('play-content').addEventListener('click', e => {
+  const b = e.target.closest('[data-nav]');
+  if (!b) return;
+  e.stopPropagation();
+  const act = b.dataset.nav;
+  if (act === 'random') return playRandom();
+  const list = getSongsInCurrentFolder();
+  const i = list.findIndex(x => x.id === currentPlayId);
+  const target = list[act === 'prev' ? i - 1 : i + 1];
+  if (target) playSong(target.id);
+}, true);
+
+function playRandom() {
+  const pool = songs.filter(x => x.id !== currentPlayId);
+  if (!pool.length) return;
+  playSong(pool[Math.floor(Math.random() * pool.length)].id);
 }
 
 function parseChords(text) {
