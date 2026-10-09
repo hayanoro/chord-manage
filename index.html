@@ -92,6 +92,11 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .song-nav .txt{flex:1;min-width:0}
 .song-nav.bottom{margin:24px 0 4px}
 .nav-pos{font-size:12px;color:var(--text2);text-align:center;margin:-6px 0 10px}
+.nav-row{display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px}
+.nav-row .nav-pos{margin:0}
+.shuffle-chip{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit}
+.shuffle-chip:hover{border-color:var(--acc);color:var(--acc)}
+.breadcrumb #folder-random{margin-left:auto}
 .breadcrumb{padding:8px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
 .breadcrumb .bc-link{cursor:pointer;color:var(--acc)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100}
@@ -130,6 +135,7 @@ input[type=range]{width:80px;accent-color:var(--acc)}
       <span class="bc-link" onclick="showView('folder')">🏠 ホーム</span>
       <span>›</span>
       <span id="breadcrumb-folder"></span>
+      <button class="shuffle-chip" id="folder-random" onclick="playRandom()" style="display:none">🎲 この中からランダム</button>
     </div>
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="曲名・アーティストで検索..." oninput="renderSongList()">
@@ -421,6 +427,7 @@ function openFolder(folderId) {
   const bb = document.getElementById('bulk-btn');
   bb.style.display = folderId !== null ? '' : 'none';
   document.getElementById('random-btn').style.display = folderId === null ? '' : 'none';
+  document.getElementById('folder-random').style.display = folderId !== null ? '' : 'none';
   document.getElementById('add-song-btn').style.display = '';
   showView('list');
   renderSongList();
@@ -939,7 +946,10 @@ function renderSongNav(s) {
   if (i < 0) return;
   const prev = list[i - 1], next = list[i + 1];
   if (prev) top.innerHTML = navBtn('', '▲', '前の曲', prev.title, 'prev');
-  top.innerHTML += `<div class="nav-pos">${i + 1} / ${list.length}</div>`;
+  top.innerHTML += list.length > 1
+    ? `<div class="nav-row"><span class="nav-pos">${i + 1} / ${list.length}</span>`
+      + `<button class="shuffle-chip" data-nav="random">🎲 この中からランダム</button></div>`
+    : `<div class="nav-pos">${i + 1} / ${list.length}</div>`;
   bottom.innerHTML = next
     ? navBtn('bottom', '▼', '次の曲', next.title, 'next')
     : '<div class="nav-pos" style="margin-top:24px">セットリストの最後の曲です</div>';
@@ -966,7 +976,8 @@ document.getElementById('play-content').addEventListener('click', e => {
 }, true);
 
 function playRandom() {
-  const pool = songs.filter(x => x.id !== currentPlayId);
+  const base = currentFolderId === null ? songs : getSongsInCurrentFolder();
+  const pool = base.filter(x => x.id !== currentPlayId);
   if (!pool.length) return;
   playSong(pool[Math.floor(Math.random() * pool.length)].id);
 }
