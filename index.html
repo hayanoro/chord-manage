@@ -92,6 +92,9 @@ input[type=range]{width:80px;accent-color:var(--acc)}
 .song-nav .txt{flex:1;min-width:0}
 .song-nav.bottom{margin:24px 0 4px}
 .nav-pos{font-size:12px;color:var(--text2);text-align:center;margin:-6px 0 10px}
+.key-btn{width:30px;height:30px;padding:0;font-size:16px;line-height:1}
+#key-val{min-width:34px;text-align:center;cursor:pointer;border-radius:6px}
+#key-val.shifted{color:var(--acc)}
 .nav-row{display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px}
 .nav-row .nav-pos{margin:0}
 .shuffle-chip{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit}
@@ -214,6 +217,12 @@ input[type=range]{width:80px;accent-color:var(--acc)}
         <input type="range" id="speed-slider" min="1" max="10" value="3" step="1" oninput="updateSpeed(this.value)">
         <span class="ctrl-val" id="speed-val">3</span>
       </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">キー</span>
+        <button class="btn key-btn" onclick="changeKey(-1)" title="半音下げる">−</button>
+        <span class="ctrl-val" id="key-val" onclick="changeKey(0)" title="タップで元のキーに戻す">0</span>
+        <button class="btn key-btn" onclick="changeKey(1)" title="半音上げる">＋</button>
+      </div>
       <button class="btn" id="scroll-btn" onclick="toggleScroll()">▶ スクロール</button>
     </div>
     <div id="play-content" onclick="toggleScroll()">
@@ -249,6 +258,8 @@ let songs = [], folders = [], folderSongs = [];
 let currentFolderId = null;
 let editingId = null, editingFolderIds = new Set();
 let currentPlayId = null;
+let currentPlaySong = null;
+let transpose = 0;   // 演奏画面で表示しているキーのずれ（半音単位）
 let scrollTimer = null, scrolling = false;
 let fontSize = 17, scrollSpeed = 3;
 let folderModalMode = 'new', folderModalTargetId = null;
@@ -914,6 +925,11 @@ function renderPlay(s) {
   document.getElementById('play-artist').textContent = s.artist || '';
   const keyEl = document.getElementById('play-key');
   keyEl.innerHTML = badges(s);
+  currentPlaySong = s;
+  // 曲ごとに覚えているキーを使う（編集中のプレビューは元のキー）
+  transpose = currentPlayId ? loadTranspose(currentPlayId) : 0;
+  updateKeyLabel();
+  decideSpelling(s.body, transpose);
   const pb = document.getElementById('play-body');
   pb.innerHTML = parseChords(s.body || '');
   pb.style.fontSize = fontSize + 'px';
@@ -1002,7 +1018,7 @@ function parseChords(text) {
           const lyric = (next && next.type === 'lyric') ? next.val : '';
           const dl = lyric ? esc(lyric)
             : `<span style="display:inline-block;min-width:${seg.val.length + 2}ch"> </span>`;
-          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(seg.val)}</span><span class="cl-lyric">${dl}</span></span>`;
+          lineHtml += `<span class="cl-chunk"><span class="cl-chord">${esc(transposeChord(seg.val, transpose))}</span><span class="cl-lyric">${dl}</span></span>`;
           if (lyric) i++;
         } else if (seg.val) {
           lineHtml += `<span class="cl-chunk"><span class="cl-chord"> </span><span class="cl-lyric">${esc(seg.val)}</span></span>`;
@@ -1021,6 +1037,79 @@ function updateFont(v) {
   document.getElementById('font-val').textContent = fontSize + 'px';
   const pb = document.getElementById('play-body');
   if (pb) pb.style.fontSize = fontSize + 'px';
+}
+
+// ========================================
+// キーチェンジ（移調）
+// 譜面のデータは書き換えず、表示するコードだけを半音単位でずらす
+// ========================================
+const SHARP_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const NOTE_INDEX  = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+// ♭で書くのが普通なメジャーキー（F, B♭, E♭, A♭, D♭）。それ以外は♯で書く
+const FLAT_KEYS   = new Set([5, 10, 3, 8, 1]);
+let useFlats = false;   // 今表示している曲を♭で書くか
+
+function noteIndex(note) {
+  const m = /^([A-G])([#♯b♭]?)$/.exec(note);
+  if (!m) return null;
+  let idx = NOTE_INDEX[m[1]];
+  if (m[2] === '#' || m[2] === '♯') idx++;
+  if (m[2] === 'b' || m[2] === '♭') idx--;
+  return (idx + 12) % 12;
+}
+
+// 移調した後の曲のキーを、最初に出てくるコードから推定して♯/♭を決める
+// （最初のコードがマイナーなら、その平行調のメジャーキーで判断する）
+function decideSpelling(body, n) {
+  const m = /\[([A-G][#♯b♭]?)(m(?!aj))?/.exec(body || '');
+  if (!m) { useFlats = false; return; }
+  let key = (noteIndex(m[1]) + n + 12 * 2) % 12;
+  if (m[2]) key = (key + 3) % 12;
+  useFlats = FLAT_KEYS.has(key);
+}
+
+// 音名1つ（例: "F#", "Bb", "E♭"）をずらす。音名でなければそのまま返す
+function shiftNote(note, n) {
+  const idx = noteIndex(note);
+  if (idx === null) return note;
+  return (useFlats ? FLAT_NAMES : SHARP_NAMES)[(idx + n + 24) % 12];
+}
+
+// コード1つ（例: "C#m7", "D/F#", "Bbadd9"）をずらす
+// 先頭の音名と、"/" の後ろの音名（分数コードのベース音）だけを書き換える
+function transposeChord(chord, n) {
+  if (!n) return chord;
+  return chord.replace(/(^|\/)([A-G][#♯b♭]?)/g, (all, head, note) => head + shiftNote(note, n));
+}
+
+function changeKey(d) {
+  if (!currentPlaySong) return;
+  transpose = d === 0 ? 0 : ((transpose + d + 18) % 12) - 6;  // -5〜+6 の範囲に収める
+  if (currentPlayId) saveTranspose(currentPlayId, transpose);
+  updateKeyLabel();
+  decideSpelling(currentPlaySong.body, transpose);
+  const y = window.scrollY;                     // 読んでいた位置を保ったまま描き直す
+  document.getElementById('play-body').innerHTML = parseChords(currentPlaySong.body || '');
+  window.scrollTo(0, y);
+}
+
+function updateKeyLabel() {
+  const el = document.getElementById('key-val');
+  el.textContent = transpose > 0 ? '+' + transpose : String(transpose);
+  el.classList.toggle('shifted', transpose !== 0);
+}
+
+function loadTranspose(id) {
+  try { return (JSON.parse(localStorage.getItem('chord_transpose') || '{}')[id]) || 0; }
+  catch (e) { return 0; }
+}
+function saveTranspose(id, v) {
+  try {
+    const all = JSON.parse(localStorage.getItem('chord_transpose') || '{}');
+    if (v) all[id] = v; else delete all[id];
+    localStorage.setItem('chord_transpose', JSON.stringify(all));
+  } catch (e) {}
 }
 
 function updateSpeed(v) {
